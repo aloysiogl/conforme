@@ -1,0 +1,4 @@
+data/argoverse_lanegcn.pkl filter=lfs diff=lfs merge=lfs -text
+data/eeg_test.pkl filter=lfs diff=lfs merge=lfs -text
+data/eeg_train.pkl filter=lfs diff=lfs merge=lfs -text
+data/covid.pkl filter=lfs diff=lfs merge=lfs -text
