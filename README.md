@@ -4,7 +4,7 @@ Link to the paper: TODO
 
 Table of contents:
 
-- [Abstract](#abstract)
+- [Abstract](doc/abstract.md)
 - [Installation](#installation)
 - [Download data](#download-data)
 - [Usage](#usage)
@@ -12,8 +12,6 @@ Table of contents:
 - [License](#license)
 
 ## Quick start
-
-TODO
 
 ## Citatation
 
