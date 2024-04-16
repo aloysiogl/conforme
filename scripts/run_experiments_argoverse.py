@@ -12,7 +12,7 @@ from conforme.conformal.predictor import (
 )
 from conforme.conformal.score import distance_2d_conformal_score
 from conforme.data_processing.argoverse import get_calibration_test
-from conforme.predictions.argoverse import run_argoverse_experiments
+from conforme.experiments.argoverse import run_argoverse_experiments
 from conforme.result.containers import ResultsWrapper
 from conforme.result.evaluation import evaluate_performance
 from conforme.result.results_database import ResultsDatabase

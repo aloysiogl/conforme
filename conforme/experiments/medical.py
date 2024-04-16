@@ -33,7 +33,6 @@ def get_model_path(
         ("-horizon{}".format(horizon)),
     )
 
-
 def run_medical_experiments(
     dataset: str,
     baseline: str,
@@ -140,9 +139,3 @@ def run_medical_experiments(
     results.n_threads = n_threads
 
     return results, predictor
-
-
-def load_medical_results(dataset: str, baseline: str, seed: int):
-    with open("saved_results/{}-{}-{}.pkl".format(dataset, baseline, seed), "rb") as f:
-        results = pickle.load(f)
-    return results

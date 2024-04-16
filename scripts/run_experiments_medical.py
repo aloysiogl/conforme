@@ -14,10 +14,10 @@ from conforme.conformal.predictor import (
 )
 from conforme.conformal.score import l1_conformal_score
 from conforme.result.results_database import ResultsDatabase
-from conforme.predictions.medical import (
+from conforme.experiments.medical import (
     run_medical_experiments,
 )
-from conforme.predictions.parameters import MedicalParameters
+from conforme.experiments.parameters import MedicalParameters
 from conforme.result.containers import ResultsWrapper
 
 
