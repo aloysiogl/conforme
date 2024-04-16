@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Callable, Dict, Optional, Tuple, Type, TypeVar
+from typing import Callable, Dict, Tuple, Type, TypeVar
 
 from torch.profiler import ProfilerActivity, profile
 
@@ -54,5 +54,6 @@ def run_experiment(
         **profile_info,
         **profile_results
     }
-    
+
+    result.set_performance_metrics(profile_info)
     return result, predictor
