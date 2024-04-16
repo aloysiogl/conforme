@@ -9,12 +9,13 @@ from typing import Callable, Optional
 import torch
 from torch.profiler import ProfilerActivity, profile
 
-from conforme.conformal.predictor import ConformalPredictor
+from ..conformal.predictor import ConformalPredictor
+from ..conformal.zones import L1IntervalZones
 
 from ..conformal.predictions import Targets1D
 from ..data_processing.dataset import ensure_1d_dataset_split
 from ..model.rnn import RNN
-from ..result.evaluation import evaluate_cfrnn_performance
+from ..result.evaluation import evaluate_cfrnn_performance, evaluate_performance
 from .parameters import MedicalParameters, get_specific_parameters_for_medical_dataset
 
 BASELINES = {"CFRNN", "CFCRNN"}
@@ -115,9 +116,9 @@ def run_medical_experiments(
 
     if should_profile:
         with profile(activities=[ProfilerActivity.CPU], profile_memory=True) as prof:
-            results = evaluate_cfrnn_performance(
-                point_predictions, test_dataset, predictor
-            )
+            test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
+            targets = Targets1D(torch.cat([batch[1] for batch in test_dataloader]))
+            results = evaluate_performance(point_predictions, targets, predictor, L1IntervalZones)
 
         total_average_prof = prof.key_averages().total_average()
         profile_info = {
@@ -126,7 +127,9 @@ def run_medical_experiments(
             "self_cpu_memory_usage_test": total_average_prof.self_cpu_memory_usage,
         }
     else:
-        results = evaluate_cfrnn_performance(point_predictions, test_dataset, predictor)
+        test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
+        targets = Targets1D(torch.cat([batch[1] for batch in test_dataloader]))
+        results = evaluate_performance(point_predictions, targets, predictor, L1IntervalZones)
 
     if save_model:
         torch.save(model, "saved_models/{}-{}-{}.pt".format(dataset, baseline, seed))  # type: ignore

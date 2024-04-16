@@ -1,27 +1,21 @@
-import pickle
 from typing import Callable, List
 
 import numpy as np
-import torch
-from torch.profiler import ProfilerActivity, profile
 from tqdm import tqdm
 
 from conforme.conformal.predictions import Targets2D
-from conforme.data_processing.argoverse import get_calibration_test
 from conforme.conformal.predictor import (
     CFRNN,
+    ConformalPredictor,
     ConForME,
     ConForMEBin,
-    ConformalPredictor,
 )
-from conforme.conformal.score import (
-    distance_2d_conformal_score,
-    l1_conformal_score,
-)
-from conforme.result.evaluation import evaluate_performance
+from conforme.conformal.score import distance_2d_conformal_score
+from conforme.data_processing.argoverse import get_calibration_test
+from conforme.predictions.argoverse import run_argoverse_experiments
 from conforme.result.containers import ResultsWrapper
+from conforme.result.evaluation import evaluate_performance
 from conforme.result.results_database import ResultsDatabase
-from conforme.result.search import binary_search_beta
 
 
 def evaluate_conformal_method(
@@ -53,41 +47,13 @@ def evaluate_conformal_method(
     tunnable_params = None
     for seed in seeds:
         np.random.seed(seed)
-        torch.manual_seed(seed)
-        cal_preds, cal_gts, test_preds, test_gts = get_calibration_test()
-        predictor = make_pred()
-        if should_profile:
-            with profile(
-                activities=[ProfilerActivity.CPU], profile_memory=True
-            ) as prof:
-                predictor.calibrate(cal_preds, cal_gts)
-
-            total_average_prof = prof.key_averages().total_average()
-            profile_info = {
-                "self_cpu_time_total_cal": total_average_prof.self_cpu_time_total,
-                "self_cpu_memory_usage_cal": total_average_prof.self_cpu_memory_usage,
-            }
-        else:
-            predictor.calibrate(cal_preds, cal_gts)
-
-        if should_profile:
-            with profile(
-                activities=[ProfilerActivity.CPU], profile_memory=True
-            ) as prof:
-                results = evaluate_performance(test_preds, test_gts, predictor)
-            total_average_prof = prof.key_averages().total_average()
-            profile_info = {
-                **profile_info,
-                "self_cpu_time_total_test": total_average_prof.self_cpu_time_total,
-                "self_cpu_memory_usage_test": total_average_prof.self_cpu_memory_usage,
-            }
-        else:
-            results = evaluate_performance(test_preds, test_gts, predictor)
-        if not should_profile:
-            profile_info = None
-
-        results.set_performance_metrics(profile_info)
-        results.n_threads = n_threads
+        results, predictor = run_argoverse_experiments(
+            make_conformal_predictor=make_pred,
+            should_profile=should_profile,
+            n_threads=n_threads,
+            seed=seed,
+            horizon=horizon,
+        )
         results_wrapper.add_results([results])
         tunnable_params = predictor.get_tunnable_params()
     result = {

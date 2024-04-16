@@ -1,13 +1,12 @@
-from typing import TypeVar
+from typing import Type, TypeVar
 import torch
 from ..data_processing.dataset import Dataset1D
-from ..conformal.predictions import Targets1D, Targets2D
+from ..conformal.predictions import Targets, Targets1D, Targets2D
 from ..result.containers import Results
-from ..conformal.zones import L1IntervalZones, DistanceZones
+from ..conformal.zones import L1IntervalZones, DistanceZones, Zones
 from ..conformal.predictor import ConformalPredictor
 
-T = TypeVar("T", bound=Targets1D)
-
+T = TypeVar("T", bound=Targets)
 
 def evaluate_cfrnn_performance(
     predictions: Targets1D,
@@ -29,14 +28,13 @@ def evaluate_cfrnn_performance(
     errors = predictions.values - targets.values
 
     # TODO: one of the next steps is to only rely on the point prediction and do conformal part outside
+    evaluate_performance(predictions, targets, conformal_predictor, L1IntervalZones)
 
     return Results(
         point_predictions=predictions,
         errors=errors,
         independent_coverage_indicators=independent_coverages.squeeze(),
         joint_coverage_indicators=joint_coverages.squeeze(),
-        upper_limit=upper,
-        lower_limit=lower,
         mean_independent_coverage=mean_independent_coverage,
         mean_joint_coverage=mean_joint_coverage,
         confidence_zone_area=interval_widths,
@@ -47,14 +45,15 @@ def evaluate_cfrnn_performance(
     )
 
 
-def evaluate_performance(
-    predictions: Targets2D,
-    targets: Targets2D,
-    conformal_predictor: ConformalPredictor[Targets2D],
-):
 
+def evaluate_performance(
+    predictions: T,
+    targets: T,
+    conformal_predictor: ConformalPredictor[T],
+    zone_constructor: Type[Zones[T]], 
+):
     errors = predictions.values - targets.values
-    zones = DistanceZones(predictions, conformal_predictor.limit_scores(predictions))
+    zones = zone_constructor(predictions, conformal_predictor.limit_scores(predictions))
     independent_coverages, joint_coverages = (
         zones.compute_coverage(targets)
     )
@@ -68,13 +67,11 @@ def evaluate_performance(
         errors=errors,
         independent_coverage_indicators=independent_coverages.squeeze(),
         joint_coverage_indicators=joint_coverages.squeeze(),
-        upper_limit=None,
-        lower_limit=None,
         mean_independent_coverage=mean_independent_coverage,
         mean_joint_coverage=mean_joint_coverage,
         confidence_zone_area=areas,
         mean_confidence_zone_area_per_horizon=areas.mean(dim=0),
         mean_confidence_zone_area=areas.mean().item(),
-        min_confidence_zone_area=areas.min(),
-        max_confidence_zone_area=areas.max(),
+        min_confidence_zone_area=areas.min().item(), # type: ignore
+        max_confidence_zone_area=areas.max().item(), # type: ignore
     )

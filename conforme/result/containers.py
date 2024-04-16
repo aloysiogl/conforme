@@ -11,8 +11,6 @@ class Results:
     independent_coverage_indicators: Any
     joint_coverage_indicators: Any
     errors: Any
-    upper_limit: Any
-    lower_limit: Any
     mean_independent_coverage: torch.Tensor
     mean_joint_coverage: float
     confidence_zone_area: Any

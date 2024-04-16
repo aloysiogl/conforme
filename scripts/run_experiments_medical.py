@@ -14,10 +14,10 @@ from conforme.conformal.predictor import (
 )
 from conforme.conformal.score import l1_conformal_score
 from conforme.result.results_database import ResultsDatabase
-from conforme.train.medical import (
+from conforme.predictions.medical import (
     run_medical_experiments,
 )
-from conforme.train.parameters import MedicalParameters
+from conforme.predictions.parameters import MedicalParameters
 from conforme.result.containers import ResultsWrapper
 
 
@@ -61,7 +61,6 @@ def evaluate_conformal_method(
             baseline=baseline,
             retrain_model=False,
             save_model=False,
-            save_results=True,
             horizon=horizon,
             n_threads=n_threads,
             params=params,
@@ -195,9 +194,9 @@ def compute(make_conformal):
 
 # makes = eric_makes + partial_makes + cfcrnn_makes + cfcrnn_full_makes + [make_cfrnn]
 # makes = partial_makes + cfcrnn_makes + [make_cfrnn]
-makes = beta_makes
+# makes = beta_makes
 # makes = [make_cfrnn]
-# makes = [partial_maker(40, 1)]
+makes = [partial_maker(40, 1)]
 
 # uses list because map is lazy
 for make in tqdm(makes):
