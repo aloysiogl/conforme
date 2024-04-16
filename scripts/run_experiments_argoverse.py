@@ -11,8 +11,10 @@ from conforme.conformal.predictor import (
     ConForMEBin,
 )
 from conforme.conformal.score import distance_2d_conformal_score
+from conforme.conformal.zones import DistanceZones
 from conforme.data_processing.argoverse import get_calibration_test
 from conforme.experiments.argoverse import run_argoverse_experiments
+from conforme.experiments.run import run_experiment
 from conforme.result.containers import ResultsWrapper
 from conforme.result.evaluation import evaluate_performance
 from conforme.result.results_database import ResultsDatabase
@@ -47,14 +49,13 @@ def evaluate_conformal_method(
     tunnable_params = None
     for seed in seeds:
         np.random.seed(seed)
-        results, predictor = run_argoverse_experiments(
+        result, predictor = run_experiment(
+            get_calibration_test,
             make_conformal_predictor=make_pred,
+            zones_constructor=DistanceZones,
             should_profile=should_profile,
-            n_threads=n_threads,
-            seed=seed,
-            horizon=horizon,
         )
-        results_wrapper.add_results([results])
+        results_wrapper.add_results([result])
         tunnable_params = predictor.get_tunnable_params()
     result = {
         "outputs": results_wrapper.get_dict(),
@@ -144,8 +145,8 @@ beta_makes = [beta_maker(beta) for beta in np.linspace(0.01, 0.99, 100)]
 
 # makes = [make_cfrnn]
 # makes = [partial_maker(40, 1)]
-# makes = partial_makes + cfcrnn_makes + [make_cfrnn]
-makes = beta_makes
+makes = partial_makes + cfcrnn_makes + [make_cfrnn]
+# makes = beta_makes
 
 # uses list because map is lazy
 for make in tqdm(makes):

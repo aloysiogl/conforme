@@ -47,10 +47,10 @@ def evaluate_cfrnn_performance(
 
 
 def evaluate_performance(
+    zone_constructor: Type[Zones[T]], 
     predictions: T,
     targets: T,
     conformal_predictor: ConformalPredictor[T],
-    zone_constructor: Type[Zones[T]], 
 ):
     errors = predictions.values - targets.values
     zones = zone_constructor(predictions, conformal_predictor.limit_scores(predictions))
