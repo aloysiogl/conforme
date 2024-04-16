@@ -40,7 +40,6 @@ def run_medical_experiments(
     make_conformal_predictor: Callable[[], ConformalPredictor[Targets1D]],
     save_model: bool = False,
     retrain_model: bool = True,
-    save_results: bool = True,
     should_profile: bool = False,
     n_threads: Optional[int] = None,
     seed: int = 0,
@@ -131,12 +130,6 @@ def run_medical_experiments(
 
     if save_model:
         torch.save(model, "saved_models/{}-{}-{}.pt".format(dataset, baseline, seed))  # type: ignore
-    if save_results:
-        with open(
-            "saved_results/{}-{}-{}.pkl".format(dataset, baseline, seed), "wb"
-        ) as f:
-            pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
-
     if not should_profile:
         profile_info = None
 
