@@ -9,10 +9,10 @@ from typing import Callable, List, Optional
 import torch
 from torch.profiler import ProfilerActivity, profile
 
-from conformal_time_series.conformal.predictions import Targets1D
-from conformal_time_series.conformal.score import l1_conformal_score
-from conformal_time_series.model.rnn import RNN
-from conformal_time_series.result.containers import Results
+from conforme.conformal.predictions import Targets1D
+from conforme.conformal.score import l1_conformal_score
+from conforme.model.rnn import RNN
+from conforme.result.containers import Results
 from ..conformal.predictor import CFRNN, ConForMEBin, ConformalPredictor
 
 from ..data_processing.synthetic import (

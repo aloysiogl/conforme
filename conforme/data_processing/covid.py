@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 from sklearn.preprocessing import StandardScaler
 
-from conformal_time_series.data_processing.dataset import Dataset1D
+from conforme.data_processing.dataset import Dataset1D
 
 from .types import NumpyFloatArray, SplitNumpy
 

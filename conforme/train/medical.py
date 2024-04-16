@@ -9,7 +9,7 @@ from typing import Callable, Optional
 import torch
 from torch.profiler import ProfilerActivity, profile
 
-from conformal_time_series.conformal.predictor import ConformalPredictor
+from conforme.conformal.predictor import ConformalPredictor
 
 from ..conformal.predictions import Targets1D
 from ..data_processing.dataset import ensure_1d_dataset_split

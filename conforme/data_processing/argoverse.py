@@ -1,7 +1,7 @@
 import pickle
 import torch
 from typing import Tuple
-from conformal_time_series.conformal.predictions import Targets2D
+from conforme.conformal.predictions import Targets2D
 
 dataset_path = "data/argoverse_lanegcn.pkl"
 

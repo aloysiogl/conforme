@@ -1,5 +1,5 @@
 from typing import TypeVar
-from conformal_time_series.result.evaluation import evaluate_performance
+from conforme.result.evaluation import evaluate_performance
 from ..result.containers import ResultsWrapper
 from ..conformal.predictor import ConForMEBin
 from ..conformal.predictions import Targets
