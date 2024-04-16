@@ -6,10 +6,10 @@ Table of contents:
 
 - [Abstract](doc/abstract.md)
 - [Installation](doc/install.md)
-- [Download data](#download-data)
+- [Download data](doc/download_data.md)
 - [Usage](#usage)
 - [References](#references)
-- [License](#license)
+- [License](LICENSE.txt)
 
 ## Quick start
 
