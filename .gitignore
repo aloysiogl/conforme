@@ -1,0 +1,5 @@
+# vscode config
+.vscode
+
+# python
+__pycache__/
