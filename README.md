@@ -5,7 +5,7 @@ Link to the paper: TODO
 Table of contents:
 
 - [Abstract](doc/abstract.md)
-- [Installation](#installation)
+- [Installation](doc/install.md)
 - [Download data](#download-data)
 - [Usage](#usage)
 - [References](#references)
