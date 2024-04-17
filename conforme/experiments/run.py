@@ -1,21 +1,21 @@
 from functools import partial
-from typing import Any, Callable, Dict, List, Tuple, Type, TypeVar, Union
+from typing import Callable, Dict, Tuple, Type, TypeVar, Union
 
-import numpy as np
 from torch.profiler import ProfilerActivity, profile
 
+from conforme.conformal.predictions import Targets2D
 from conforme.data_processing.argoverse import get_calibration_test as get_calibration_test_argoverse
+from conforme.experiments.medical import train_and_get_calibration_test_medical
+from conforme.experiments.parameters import MedicalParameters
 
-from ..result.results_database import ResultsDatabase
 
-from ..result.containers import Results, ResultsWrapper
 
 from ..result.evaluation import evaluate_performance
 
-from ..conformal.zones import DistanceZones, Zones
+from ..conformal.zones import DistanceZones, L1IntervalZones, Zones
 from ..conformal.predictor import ConformalPredictor
 
-from ..conformal.predictions import Targets
+from ..conformal.predictions import Targets, Targets1D
 
 T = TypeVar("T", bound=Targets)
 R = TypeVar("R")
@@ -71,33 +71,51 @@ def run_experiment(
     return result, predictor
 
 
-T_1 = TypeVar("T_1", bound=Targets)
+"""
+Runners for each dataset
+"""
 
 
-def evaluate_conformal_method(
-    run_experiment: Callable[[], Tuple[Results, ConformalPredictor[T_1]]],
-    results_database: ResultsDatabase,
-    params: Dict[str, Union[str, Any]],
-    seeds: List[int] = [0, 1, 2, 3, 4],
-    skip_existing: bool = False,
-    save_results: bool = True,
+def get_argoverse_runner(
+        make_cp: Callable[[], ConformalPredictor[Targets2D]],
+        should_profile: bool,
 ):
-    if skip_existing and results_database.lookup(params):
-        return
+    def run(seed: int):
+        return run_experiment(
+            get_calibration_test_argoverse,
+            make_cp,
+            DistanceZones,
+            should_profile,
+        )
+    return run
 
-    results_wrapper = ResultsWrapper()
-    tunnable_params = None
-    for seed in seeds:
-        np.random.seed(seed)
-        results, predictor = run_experiment()
-        results_wrapper.add_results([results])
-        tunnable_params = predictor.get_tunnable_params()
 
-    result = {
-        "outputs": results_wrapper.get_dict(),
-        "tunnable_params": tunnable_params,
-    }
-    results_database.modify_result(params, result)
+def get_medical_runner(
+        make_cp: Callable[[], ConformalPredictor[Targets1D]],
+        should_profile: bool,
+        dataset: str,
+        save_model: bool,
+        retrain_model: bool,
+        horizon: int,
+):
 
-    if save_results:
-        results_database.save()
+    medical_params = MedicalParameters()
+
+    def run(seed: int):
+        def get_calibration_test():
+            return train_and_get_calibration_test_medical(
+                dataset,
+                medical_params,
+                seed,
+                horizon,
+                save_model,
+                retrain_model
+            )
+
+        return run_experiment(
+            get_calibration_test,
+            make_cp,
+            L1IntervalZones,
+            should_profile,
+        )
+    return run

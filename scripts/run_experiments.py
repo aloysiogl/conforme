@@ -1,65 +1,106 @@
-from typing import Callable, List, Tuple, TypeVar
+from typing import Callable, List, TypeVar
 
 from tqdm import tqdm
-from conforme.conformal.predictions import Targets, Targets2D
+from conforme.conformal.predictions import Targets, Targets1D
 from conforme.conformal.predictor import ConForMEParams, ConformalPredictor, ConformalPredictorParams, get_cfrnn_maker, get_conforme_maker
-from conforme.conformal.score import distance_2d_conformal_score
-from conforme.conformal.zones import DistanceZones
-from conforme.data_processing.argoverse import get_calibration_test as get_calibration_test_argoverse
-from conforme.experiments.run import evaluate_conformal_method, run_experiment
-from conforme.result.containers import Results
+from conforme.conformal.score import l1_conformal_score, distance_2d_conformal_score
+from conforme.experiments.run import get_argoverse_runner, get_medical_runner
+from conforme.result.evaluation import evaluate_dataset
 from conforme.result.results_database import ResultsDatabase
 
 T = TypeVar("T", bound=Targets)
 
 
-def evaluate_dataset(
-    dataset: str,
-    results_database: ResultsDatabase,
-    get_runner: Callable[[Callable[[], ConformalPredictor[T]], bool], Callable[[], Tuple[Results, ConformalPredictor[T]]]],
-    make_cp: Callable[[], ConformalPredictor[T]],
-    should_profile: bool,
-    seeds: List[int],
-    skip_existing: bool,
-    save_results: bool,
-):
-    params = {
-        "dataset": dataset,
-        "nb_seeds": len(seeds),
-        "conformal_predictor_params": make_cp().get_params(),
-        "method": make_cp().get_name(),
-    }
+def run_experiments_for_dataset(dataset: str,
+                                should_profile: bool,
+                                general_params: ConformalPredictorParams[T],
+                                cp_makers: List[Callable[[], Callable[[], ConformalPredictor[T]]]],
+                                experience_suffix: str = "",
+                                seeds: List[int] = [0, 1, 2, 3, 4]):
+    name_string = f"{dataset}{'_profile' if should_profile else ''}_horizon{eeg10_general_params.horizon} \
+                    {'_' if experience_suffix else ''}{experience_suffix}"
+    results_database = ResultsDatabase("./results", name_string)
 
-    evaluate_conformal_method(
-        get_runner(make_cp, should_profile),
-        results_database,
-        params,
-        seeds,
-        skip_existing,
-        save_results
-    )
-
-
-def get_argoverse_runner(
-        make_cp: Callable[[], ConformalPredictor[Targets2D]],
-        should_profile: bool,
-):
-    def run():
-        return run_experiment(
-            get_calibration_test_argoverse,
+    for make_cp in tqdm(cp_makers):
+        def get_runner(make_cp: Callable[[], ConformalPredictor[Targets1D]], should_profile: bool):
+            return get_medical_runner(
+                make_cp,
+                should_profile,
+                dataset,
+                save_model=True,
+                retrain_model=False,
+                horizon=general_params.horizon
+            )
+        evaluate_dataset(
+            dataset,
+            results_database,
+            get_runner,
             make_cp,
-            DistanceZones,
             should_profile,
+            seeds=seeds,
+            skip_existing=True,
+            save_results=True
         )
-    return run
 
+
+"""Parameter definitions for the conoformal predictors in each experiment """
+
+synthetic_general_params = ConformalPredictorParams(
+    alpha=0.1,
+    horizon=10,
+    score_fn=l1_conformal_score,
+)
+
+synthetic_cp_makers = [
+    get_conforme_maker(
+        ConForMEParams(
+            general_params=synthetic_general_params,
+            approximate_partition_size=s,
+            epochs=e,
+            lr=0.00000001)) for s in [1, 2, 3, 10, 30] for e in [1, 100]
+] + [
+    get_cfrnn_maker(synthetic_general_params)
+]
+
+eeg10_general_params = ConformalPredictorParams(
+    alpha=0.1,
+    horizon=10,
+    score_fn=l1_conformal_score,
+)
+
+eeg10_cp_makers = [
+    get_conforme_maker(
+        ConForMEParams(
+            general_params=eeg10_general_params,
+            approximate_partition_size=s,
+            epochs=e,
+            lr=0.00000001)) for s in [1, 2, 3, 5, 10] for e in [1, 100]
+] + [
+    get_cfrnn_maker(eeg10_general_params)
+]
+
+eeg40_general_params = ConformalPredictorParams(
+    alpha=0.1,
+    horizon=40,
+    score_fn=l1_conformal_score,
+)
+
+eeg40_cp_makers = [
+    get_conforme_maker(
+        ConForMEParams(
+            general_params=eeg10_general_params,
+            approximate_partition_size=s,
+            epochs=e,
+            lr=0.00000001)) for s in [1, 2, 3, 5, 10] for e in [1, 100]
+] + [
+    get_cfrnn_maker(eeg10_general_params)
+]
 
 argoverse_general_params = ConformalPredictorParams(
     alpha=0.1,
     horizon=30,
     score_fn=distance_2d_conformal_score,
 )
-
 
 argoverse_cp_makers = [
     get_conforme_maker(
@@ -73,19 +114,10 @@ argoverse_cp_makers = [
 ]
 
 
-dataset = "argoverse"
-should_profile = True
-name_string = f"{dataset}{'_pftest' if should_profile else ''}_horizon{argoverse_general_params.horizon}"
-results_database = ResultsDatabase("./results", name_string)
+"""Running the experiments"""
 
-for make_cp in tqdm(argoverse_cp_makers):
-    evaluate_dataset(
-        dataset,
-        results_database,
-        get_argoverse_runner,
-        make_cp,
-        should_profile,
-        seeds=[0, 1, 2, 3, 4],
-        skip_existing=False,
-        save_results=True
-    )
+# run_experiments_for_dataset("argoverse", True, argoverse_general_params, argoverse_cp_makers)
+
+# run_experiments_for_dataset("eeg", True, eeg10_general_params, eeg10_cp_makers)
+
+# run_experiments_for_dataset("eeg", True, eeg40_general_params, eeg10_cp_makers)

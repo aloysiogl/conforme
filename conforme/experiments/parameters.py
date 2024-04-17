@@ -11,16 +11,10 @@ from ..data_processing.types import SplitNumpy
 
 
 class MedicalParameters(BaseModel):
-    beta: float = 2 / 3
     batch_size: int = 150
     embedding_size: int = 20
-    coverage: float = 0.9
     lr: float = 0.01
-    n_steps: int = 1000
-    input_size: int = 1
     rnn_mode: str = "LSTM"
-    max_steps: Optional[int] = None
-    output_size: Optional[int] = None
 
 
 class SplitFunctionEEG(Protocol):
@@ -66,26 +60,22 @@ class MedicalAditionalParams:
 
 
 def get_specific_parameters_for_medical_dataset(
-    dataset: str, model_name: str
+    dataset: str
 ) -> MedicalAditionalParams:
-    model_name_to_epochs = {
-        "CFRNN": {"mimic": 1000, "eeg": 100, "covid": 1000},
-        "CFCRNN": {"mimic": 1000, "eeg": 100, "covid": 1000},
-    }
 
-    if model_name not in model_name_to_epochs:
-        raise ValueError(f"Invalid model_name: {model_name}")
+    epochs_per_dataset = {"eeg": 100, "covid": 1000}
+
     if dataset == "eeg":
         return MedicalAditionalParams(
             get_split=get_eeg_splits,
-            epochs=model_name_to_epochs[model_name]["eeg"],
+            epochs=epochs_per_dataset["eeg"],
             horizon_length=10,
             timeseries_length=40,
         )
     elif dataset == "covid":
         return MedicalAditionalParams(
             get_split=get_covid_splits,
-            epochs=model_name_to_epochs[model_name]["covid"],
+            epochs=epochs_per_dataset["covid"],
             horizon_length=50,
             timeseries_length=100,
         )
@@ -101,7 +91,6 @@ class SyntheticParameters(BaseModel):
     embedding_size: int = 20
     max_steps: int = 10
     horizon: int = 5
-    coverage: float = 0.9
     lr: float = 0.01
     beta: float = 2 / 3
     rnn_mode: str = "LSTM"
