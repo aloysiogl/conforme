@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import torch.nn as nn
 
 from math import ceil, sqrt
@@ -9,6 +10,14 @@ from .predictions import Targets
 from .score import ConformalScores
 
 P = TypeVar("P", bound=Targets)
+P_2 = TypeVar("P_2", bound=Targets)
+
+
+@dataclass
+class ConformalPredictorParams(Generic[P_2]):
+    alpha: float
+    horizon: int
+    score_fn: Callable[[P_2, P_2], ConformalScores]
 
 
 class ConformalPredictor(Generic[P]):
@@ -40,6 +49,7 @@ class ConformalPredictor(Generic[P]):
         return {
             "alpha": self._alpha,
             "horizon": self._horizon,
+            "method": self.get_name(),
         }
 
     def get_tunnable_params(self):
@@ -90,6 +100,17 @@ class CFRNN(ConformalPredictor[P_1]):
                 target_shape[0], target_shape[1], 1
             )
         )
+
+P_5 = TypeVar("P_5", bound=Targets)
+
+def get_cfrnn_maker(params: ConformalPredictorParams[P_5]):
+    def make():
+        return CFRNN(
+            alpha=params.alpha,
+            horizon=params.horizon,
+            score_fn=params.score_fn,
+        )
+    return make
 
 
 class ConForMEBin(ConformalPredictor[P_1]):
@@ -143,15 +164,18 @@ class ConForMEBin(ConformalPredictor[P_1]):
         for i in range(effective_horizon):
             if i == effective_horizon - 1 and consider_last_element:
                 last_sequence = scores[:, -1]
-                limit_scores.append(limit_score_for_sequence(last_sequence, pair_alpha))
+                limit_scores.append(limit_score_for_sequence(
+                    last_sequence, pair_alpha))
             else:
                 idx = 2 * i
                 even_sequence = scores[:, idx]
-                even_limit_score = limit_score_for_sequence(even_sequence, even_alpha)
+                even_limit_score = limit_score_for_sequence(
+                    even_sequence, even_alpha)
                 idx = 2 * i + 1
                 odd_scores = scores[:, idx]
                 odd_sequence = odd_scores[even_sequence <= even_limit_score]
-                odd_limit_score = limit_score_for_sequence(odd_sequence, odd_alpha)
+                odd_limit_score = limit_score_for_sequence(
+                    odd_sequence, odd_alpha)
 
                 limit_scores.append(even_limit_score)
                 limit_scores.append(odd_limit_score)
@@ -205,7 +229,7 @@ class ConForMEBin(ConformalPredictor[P_1]):
             **super().get_tunnable_params(),
             "beta": self._beta,
         }
-    
+
     def get_params(self):
         if not self._optimze:
             return {
@@ -365,6 +389,14 @@ class CFCRNNFull(nn.Module, ConformalPredictor[P_1]):
         )
 
 
+@dataclass
+class ConForMEParams(Generic[P_2]):
+    approximate_partition_size: int
+    epochs: int
+    lr: float
+    general_params: ConformalPredictorParams[P_2]
+
+
 class ConForME(nn.Module, ConformalPredictor[P_1]):
     def __init__(
         self,
@@ -421,7 +453,8 @@ class ConForME(nn.Module, ConformalPredictor[P_1]):
         for i in range(len(self._alphas_per_block)):
             limit_scores: List[torch.Tensor] = []
             limit_scores.append(torch.tensor(float("inf")))
-            cal_points_mask = torch.ones(scores[:, idx].shape, dtype=torch.bool)
+            cal_points_mask = torch.ones(
+                scores[:, idx].shape, dtype=torch.bool)
 
             for j in range(len(self._alphas_per_block[i])):
                 previous_limits = limit_scores[j]
@@ -461,7 +494,6 @@ class ConForME(nn.Module, ConformalPredictor[P_1]):
             self._limit_scores, _ = self.predict(targets, predictions)
             return
 
-
         self.train()
         best_loss = float("inf")
         best_scores = None
@@ -479,7 +511,8 @@ class ConForME(nn.Module, ConformalPredictor[P_1]):
                 tot_alpha = torch.sum(torch.stack(block_alphas))
                 return 1 - tot_alpha
 
-            effective_one_minus_alpha = compute_effective_one_minus_alpha(alphas_list)
+            effective_one_minus_alpha = compute_effective_one_minus_alpha(
+                alphas_list)
 
             alpha_diff = torch.abs(
                 effective_one_minus_alpha - (1 - torch.tensor(self._alpha))
@@ -541,6 +574,18 @@ class ConForME(nn.Module, ConformalPredictor[P_1]):
             )
         )
 
+def get_conforme_maker(params: ConForMEParams[P_5]):
+    def make():
+        return ConForME(
+            score_fn=params.general_params.score_fn,
+            alpha=params.general_params.alpha,
+            horizon=params.general_params.horizon,
+            approximate_partition_size=params.approximate_partition_size,
+            epochs=params.epochs,
+            lr=params.lr,
+        )
+    return make
+
 
 class CFCEric(nn.Module, ConformalPredictor[P_1]):
     def __init__(
@@ -577,7 +622,8 @@ class CFCEric(nn.Module, ConformalPredictor[P_1]):
         base_alpha_no_offset = alpha / 2
         base_alpha_offset = alpha / 2
 
-        effective_alpha_no_offset = base_alpha_no_offset / (no_offset_block_n_blocks)
+        effective_alpha_no_offset = base_alpha_no_offset / \
+            (no_offset_block_n_blocks)
         effective_alpha_offset = base_alpha_offset / (offset_n_blocks)
         alphas_no_offset = nn.Parameter(
             torch.ones(no_offset_block_n_blocks) * effective_alpha_no_offset
@@ -624,7 +670,8 @@ class CFCEric(nn.Module, ConformalPredictor[P_1]):
             for i in range(len(alphas_per_block)):
                 limit_scores: List[torch.Tensor] = []
                 limit_scores.append(torch.tensor(float("inf")))
-                cal_points_mask = torch.ones(scores[:, idx].shape, dtype=torch.bool)
+                cal_points_mask = torch.ones(
+                    scores[:, idx].shape, dtype=torch.bool)
 
                 for j in range(len(alphas_per_block[i])):
                     previous_limits = limit_scores[j]
@@ -657,7 +704,8 @@ class CFCEric(nn.Module, ConformalPredictor[P_1]):
         limit_scores_no_offset = limit_scores(self._alphas_per_block_no_offset)
         limit_scores_offset = limit_scores(self._alphas_per_block_offset)
         limit_scores_tensor = (
-            torch.stack([limit_scores_no_offset, limit_scores_offset]).min(dim=0).values
+            torch.stack([limit_scores_no_offset, limit_scores_offset]).min(
+                dim=0).values
         )
         self._n_computations += 2
 

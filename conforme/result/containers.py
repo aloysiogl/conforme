@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from numbers import Number
+from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 
 import torch
@@ -24,8 +25,8 @@ class Results:
     self_cpu_memory_usage_test: Optional[float] = None
     n_threads: Optional[int] = None
 
-    def set_performance_metrics(self, dict: Optional[Dict[str, int]]):
-        if dict is None:
+    def set_performance_metrics(self, dict: Dict[str, int]):
+        if not dict:
             return
 
         self.self_cpu_time_total_cal = dict["self_cpu_time_total_cal"]
@@ -50,7 +51,7 @@ class ResultsWrapper:
         std = np.std(coverages)
         return mean.item(), std.item()
 
-    def get_mean_area_per_horizon(self):
+    def get_mean_area_per_horizon(self) -> List[float]:
         mean_area = torch.stack(
             [res.mean_confidence_zone_area_per_horizon for res in self._results]
         )
@@ -82,8 +83,8 @@ class ResultsWrapper:
 
         return max.item(), stds.item()
 
-    def get_mean_metric(self, get_metric):
-        def filter_none(res):
+    def get_mean_metric(self, get_metric: Callable[[Results], Optional[float]]):
+        def filter_none(res: Optional[float]):
             return res is not None
 
         metric_list = [get_metric(res) for res in self._results]
@@ -100,8 +101,8 @@ class ResultsWrapper:
 
         return mean.item()
     
-    def get_std_metric(self, get_metric):
-        def filter_none(res):
+    def get_std_metric(self, get_metric: Callable[[Results], Optional[float]]):
+        def filter_none(res: Optional[float]):
             return res is not None
 
         metric_list = [get_metric(res) for res in self._results]
@@ -117,8 +118,8 @@ class ResultsWrapper:
 
         return std.item()
 
-    def get_min_metric(self, get_metric):
-        def filter_none(res):
+    def get_min_metric(self, get_metric: Callable[[Results], Optional[float]]):
+        def filter_none(res: Optional[float]):
             return res is not None
 
         metric_list = [get_metric(res) for res in self._results]
@@ -135,8 +136,8 @@ class ResultsWrapper:
 
         return min.item()
 
-    def get_max_metric(self, get_metric):
-        def filter_none(res):
+    def get_max_metric(self, get_metric: Callable[[Results], Optional[float]]):
+        def filter_none(res: Optional[float]):
             return res is not None
 
         metric_list = [get_metric(res) for res in self._results]
