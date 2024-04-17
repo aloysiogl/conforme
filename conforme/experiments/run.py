@@ -1,21 +1,20 @@
 from functools import partial
-from typing import Callable, Dict, Tuple, Type, TypeVar, Union
+from typing import Callable, Dict, Tuple, Type, TypeVar
 
 from torch.profiler import ProfilerActivity, profile
 
 from conforme.conformal.predictions import Targets2D
-from conforme.data_processing.argoverse import get_calibration_test as get_calibration_test_argoverse
+from conforme.data_processing.argoverse import (
+    get_calibration_test as get_calibration_test_argoverse,
+)
 from conforme.experiments.medical import train_and_get_calibration_test_medical
-from conforme.experiments.parameters import MedicalParameters
-
-
-
-from ..result.evaluation import evaluate_performance
-
-from ..conformal.zones import DistanceZones, L1IntervalZones, Zones
-from ..conformal.predictor import ConformalPredictor
+from conforme.experiments.parameters import MedicalParameters, SyntheticParameters
+from conforme.experiments.synthetic import train_and_get_calibration_test_synthetic
 
 from ..conformal.predictions import Targets, Targets1D
+from ..conformal.predictor import ConformalPredictor, ConformalPredictorParams
+from ..conformal.zones import DistanceZones, L1IntervalZones, Zones
+from ..result.evaluation import evaluate_performance
 
 T = TypeVar("T", bound=Targets)
 R = TypeVar("R")
@@ -29,9 +28,7 @@ def profile_call(callable: Callable[[], R], suffix: str, should_profile: bool) -
             result = callable()
         total_average_prof = prof.key_averages().total_average()  # type: ignore
         profile_info = {  # type: ignore
-            # type: ignore
             f"self_cpu_time_total_{suffix}": total_average_prof.self_cpu_time_total,
-            # type: ignore
             f"self_cpu_memory_usage_{suffix}": total_average_prof.self_cpu_memory_usage,
         }
     else:
@@ -90,32 +87,85 @@ def get_argoverse_runner(
     return run
 
 
-def get_medical_runner(
-        make_cp: Callable[[], ConformalPredictor[Targets1D]],
+def get_synthetic_runner(
+        make_cp: Callable[[], ConformalPredictor[Targets2D]],
         should_profile: bool,
-        dataset: str,
-        save_model: bool,
-        retrain_model: bool,
-        horizon: int,
 ):
-
-    medical_params = MedicalParameters()
-
     def run(seed: int):
-        def get_calibration_test():
-            return train_and_get_calibration_test_medical(
-                dataset,
-                medical_params,
-                seed,
-                horizon,
-                save_model,
-                retrain_model
-            )
-
         return run_experiment(
-            get_calibration_test,
+            get_calibration_test_argoverse,
             make_cp,
-            L1IntervalZones,
+            DistanceZones,
             should_profile,
         )
     return run
+
+
+def prepare_synthetic_runner(
+    experiment: str,
+    experiment_mode: int,
+    save_model: bool,
+    retrain_model: bool,
+    recompute_dataset: bool,
+    dynamic_sequence_lengths: bool,
+    params: ConformalPredictorParams[Targets1D],
+):
+    def get_runner(make_cp: Callable[[], ConformalPredictor[Targets1D]], should_profile: bool):
+        synthetic_params = SyntheticParameters()
+
+        def run(seed: int):
+            def get_calibration_test():
+                return train_and_get_calibration_test_synthetic(
+                    experiment,
+                    experiment_mode,
+                    synthetic_params,
+                    seed,
+                    params.horizon,
+                    save_model,
+                    retrain_model,
+                    recompute_dataset,
+                    dynamic_sequence_lengths
+                )
+
+            return run_experiment(
+                get_calibration_test,
+                make_cp,
+                L1IntervalZones,
+                should_profile,
+            )
+        return run
+
+    return get_runner
+
+
+def prepare_medical_runner(
+        dataset: str,
+        save_model: bool,
+        retrain_model: bool,
+        params: ConformalPredictorParams[Targets1D],
+):
+    horizon = params.horizon
+
+    def get_runner(make_cp: Callable[[], ConformalPredictor[Targets1D]], should_profile: bool):
+        medical_params = MedicalParameters()
+
+        def run(seed: int):
+            def get_calibration_test():
+                return train_and_get_calibration_test_medical(
+                    dataset,
+                    medical_params,
+                    seed,
+                    horizon,
+                    save_model,
+                    retrain_model
+                )
+
+            return run_experiment(
+                get_calibration_test,
+                make_cp,
+                L1IntervalZones,
+                should_profile,
+            )
+        return run
+
+    return get_runner

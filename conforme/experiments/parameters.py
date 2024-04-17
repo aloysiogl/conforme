@@ -95,3 +95,4 @@ class SyntheticParameters(BaseModel):
     beta: float = 2 / 3
     rnn_mode: str = "LSTM"
     output_size: Optional[int] = None
+    n_train: Optional[int] = None

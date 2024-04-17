@@ -55,7 +55,6 @@ def get_covid_splits(
     train_dataset: Union[Dataset1D, SplitNumpy]
     calibration_dataset: Union[Dataset1D, Optional[SplitNumpy]]
     test_dataset: Union[Dataset1D, SplitNumpy]
-
     if cached:
         if conformal:
             with open("processed_data/covid_conformal.pkl", "rb") as f:
@@ -64,7 +63,7 @@ def get_covid_splits(
             with open("processed_data/covid_raw.pkl", "rb") as f:
                 train_dataset, calibration_dataset, test_dataset = pickle.load(f)
     else:
-        raw_data = get_raw_covid_data(cached=cached)
+        raw_data = get_raw_covid_data()
         X = raw_data[:, :length]
         Y = raw_data[:, length : length + horizon]
 

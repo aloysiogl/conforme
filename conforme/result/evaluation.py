@@ -2,11 +2,12 @@ from typing import Any, Callable, Dict, List, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch
+from tqdm import tqdm
 
 from conforme.result.results_database import ResultsDatabase
 
 from ..conformal.predictions import Targets
-from ..conformal.predictor import ConformalPredictor
+from ..conformal.predictor import ConformalPredictor, ConformalPredictorParams
 from ..conformal.zones import Zones
 from ..result.containers import Results, ResultsWrapper
 
@@ -103,3 +104,30 @@ def evaluate_dataset(
         skip_existing,
         save_results
     )
+
+
+T_2 = TypeVar("T_2", bound=Targets)
+
+
+def evaluate_experiments_for_dataset(dataset: str,
+                                     should_profile: bool,
+                                     general_params: ConformalPredictorParams[T_2],
+                                     cp_makers: List[Callable[[], Callable[[], ConformalPredictor[T_2]]]],
+                                     get_runner: Callable[[Callable[[], ConformalPredictor[T_2]], bool], Callable[[int], Tuple[Results, ConformalPredictor[T_2]]]],
+                                     experience_suffix: str = "",
+                                     seeds: List[int] = [0, 1, 2, 3, 4]):
+    name_string = f"{dataset}{'_profile' if should_profile else ''}_horizon{general_params.horizon}" \
+        f"{'_' if experience_suffix else ''}{experience_suffix}"
+    results_database = ResultsDatabase("./results", name_string)
+
+    for make_cp in tqdm(cp_makers):
+        evaluate_dataset(
+            dataset,
+            results_database,
+            get_runner,
+            make_cp,
+            should_profile,
+            seeds=seeds,
+            skip_existing=True,
+            save_results=True
+        )
