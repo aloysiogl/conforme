@@ -1,8 +1,7 @@
 from dataclasses import dataclass
-from numbers import Number
 from typing import Any, Callable, Dict, List, Optional
-import numpy as np
 
+import numpy as np
 import torch
 
 
@@ -51,14 +50,15 @@ class ResultsWrapper:
         std = np.std(coverages)
         return mean.item(), std.item()
 
-    def get_mean_area_per_horizon(self) -> List[float]:
+    def get_mean_area_per_horizon(self) -> tuple[List[float], List[float]]:
         mean_area = torch.stack(
             [res.mean_confidence_zone_area_per_horizon for res in self._results]
         )
-        means = mean_area.mean(dim=0)
-        stds = mean_area.std(dim=0)
+        assert mean_area.ndim == 2
+        means: list[float] = mean_area.mean(dim=0).tolist()  # type: ignore
+        stds: list[float] = mean_area.std(dim=0).tolist()  # type: ignore
 
-        return means.tolist(), stds.tolist()
+        return means, stds
 
     def get_mean_area(self):
         mean_area = torch.tensor(
@@ -97,10 +97,9 @@ class ResultsWrapper:
             dtype=torch.float,
         )
         mean = metric.mean()
-        std = metric.std()
 
         return mean.item()
-    
+
     def get_std_metric(self, get_metric: Callable[[Results], Optional[float]]):
         def filter_none(res: Optional[float]):
             return res is not None
@@ -153,7 +152,7 @@ class ResultsWrapper:
         max = metric.max()
 
         return max.item()
-    
+
     def get_n_threads(self):
         n_threads = self._results[0].n_threads
         if not all([res.n_threads == n_threads for res in self._results]):

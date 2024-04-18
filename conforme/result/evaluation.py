@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, Dict, List, Tuple, Type, Union
 
 import numpy as np
 import torch
@@ -11,10 +11,8 @@ from ..conformal.predictor import ConformalPredictor, ConformalPredictorParams
 from ..conformal.zones import Zones
 from ..result.containers import Results, ResultsWrapper
 
-T = TypeVar("T", bound=Targets)
 
-
-def evaluate_performance(
+def evaluate_performance[T: Targets](
     zone_constructor: Type[Zones[T]],
     predictions: T,
     targets: T,
@@ -47,11 +45,8 @@ def evaluate_performance(
     )
 
 
-T_1 = TypeVar("T_1", bound=Targets)
-
-
-def evaluate_conformal_method(
-    run_experiment: Callable[[int], Tuple[Results, ConformalPredictor[T_1]]],
+def evaluate_conformal_method[T: Targets](
+    run_experiment: Callable[[int], Tuple[Results, ConformalPredictor[T]]],
     results_database: ResultsDatabase,
     params: Dict[str, Union[str, Any]],
     seeds: List[int] = [0, 1, 2, 3, 4],
@@ -79,7 +74,7 @@ def evaluate_conformal_method(
         results_database.save()
 
 
-def evaluate_dataset(
+def evaluate_dataset[T: Targets](
     dataset: str,
     results_database: ResultsDatabase,
     get_runner: Callable[[Callable[[], ConformalPredictor[T]], bool], Callable[[int], Tuple[Results, ConformalPredictor[T]]]],
@@ -106,14 +101,11 @@ def evaluate_dataset(
     )
 
 
-T_2 = TypeVar("T_2", bound=Targets)
-
-
-def evaluate_experiments_for_dataset(dataset: str,
+def evaluate_experiments_for_dataset[T: Targets](dataset: str,
                                      should_profile: bool,
-                                     general_params: ConformalPredictorParams[T_2],
-                                     cp_makers: List[Callable[[], Callable[[], ConformalPredictor[T_2]]]],
-                                     get_runner: Callable[[Callable[[], ConformalPredictor[T_2]], bool], Callable[[int], Tuple[Results, ConformalPredictor[T_2]]]],
+                                     general_params: ConformalPredictorParams[T],
+                                     cp_makers: list[Callable[[], ConformalPredictor[T]]],
+                                     get_runner: Callable[[Callable[[], ConformalPredictor[T]], bool], Callable[[int], Tuple[Results, ConformalPredictor[T]]]],
                                      experience_suffix: str = "",
                                      seeds: List[int] = [0, 1, 2, 3, 4]):
     name_string = f"{dataset}{'_profile' if should_profile else ''}_horizon{general_params.horizon}" \

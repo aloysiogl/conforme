@@ -20,16 +20,16 @@ T = TypeVar("T", bound=Targets)
 R = TypeVar("R")
 
 
-def profile_call(callable: Callable[[], R], suffix: str, should_profile: bool) -> Tuple[Dict[str, int], R]:
+def profile_call(
+    callable: Callable[[], R], suffix: str, should_profile: bool
+) -> Tuple[Dict[str, int], R]:
     if should_profile:
-        with profile(
-            activities=[ProfilerActivity.CPU], profile_memory=True
-        ) as prof:
+        with profile(activities=[ProfilerActivity.CPU], profile_memory=True) as prof:
             result = callable()
         total_average_prof = prof.key_averages().total_average()  # type: ignore
         profile_info = {  # type: ignore
-            f"self_cpu_time_total_{suffix}": total_average_prof.self_cpu_time_total,
-            f"self_cpu_memory_usage_{suffix}": total_average_prof.self_cpu_memory_usage,
+            f"self_cpu_time_total_{suffix}": total_average_prof.self_cpu_time_total,  # type: ignore
+            f"self_cpu_memory_usage_{suffix}": total_average_prof.self_cpu_memory_usage,  # type: ignore
         }
     else:
         result = callable()
@@ -53,16 +53,16 @@ def run_experiment(
     # Calibration pass
     profile_info = {
         **profile_info,
-        **profile_call(lambda: predictor.calibrate(cal_preds, cal_gts), "cal", should_profile)[0]
+        **profile_call(
+            lambda: predictor.calibrate(cal_preds, cal_gts), "cal", should_profile
+        )[0],
     }
 
     # Test pass
-    profile_results, result = profile_call(lambda: eval_perf(
-        test_preds, test_gts, predictor), "test", should_profile)
-    profile_info = {
-        **profile_info,
-        **profile_results
-    }
+    profile_results, result = profile_call(
+        lambda: eval_perf(test_preds, test_gts, predictor), "test", should_profile
+    )
+    profile_info = {**profile_info, **profile_results}
 
     result.set_performance_metrics(profile_info)
     return result, predictor
@@ -74,8 +74,8 @@ Runners for each dataset
 
 
 def get_argoverse_runner(
-        make_cp: Callable[[], ConformalPredictor[Targets2D]],
-        should_profile: bool,
+    make_cp: Callable[[], ConformalPredictor[Targets2D]],
+    should_profile: bool,
 ):
     def run(seed: int):
         return run_experiment(
@@ -84,12 +84,13 @@ def get_argoverse_runner(
             DistanceZones,
             should_profile,
         )
+
     return run
 
 
 def get_synthetic_runner(
-        make_cp: Callable[[], ConformalPredictor[Targets2D]],
-        should_profile: bool,
+    make_cp: Callable[[], ConformalPredictor[Targets2D]],
+    should_profile: bool,
 ):
     def run(seed: int):
         return run_experiment(
@@ -98,6 +99,7 @@ def get_synthetic_runner(
             DistanceZones,
             should_profile,
         )
+
     return run
 
 
@@ -110,7 +112,9 @@ def prepare_synthetic_runner(
     dynamic_sequence_lengths: bool,
     params: ConformalPredictorParams[Targets1D],
 ):
-    def get_runner(make_cp: Callable[[], ConformalPredictor[Targets1D]], should_profile: bool):
+    def get_runner(
+        make_cp: Callable[[], ConformalPredictor[Targets1D]], should_profile: bool
+    ):
         synthetic_params = SyntheticParameters()
 
         def run(seed: int):
@@ -124,7 +128,7 @@ def prepare_synthetic_runner(
                     save_model,
                     retrain_model,
                     recompute_dataset,
-                    dynamic_sequence_lengths
+                    dynamic_sequence_lengths,
                 )
 
             return run_experiment(
@@ -133,31 +137,29 @@ def prepare_synthetic_runner(
                 L1IntervalZones,
                 should_profile,
             )
+
         return run
 
     return get_runner
 
 
 def prepare_medical_runner(
-        dataset: str,
-        save_model: bool,
-        retrain_model: bool,
-        params: ConformalPredictorParams[Targets1D],
+    dataset: str,
+    save_model: bool,
+    retrain_model: bool,
+    params: ConformalPredictorParams[Targets1D],
 ):
     horizon = params.horizon
 
-    def get_runner(make_cp: Callable[[], ConformalPredictor[Targets1D]], should_profile: bool):
+    def get_runner(
+        make_cp: Callable[[], ConformalPredictor[Targets1D]], should_profile: bool
+    ):
         medical_params = MedicalParameters()
 
         def run(seed: int):
             def get_calibration_test():
                 return train_and_get_calibration_test_medical(
-                    dataset,
-                    medical_params,
-                    seed,
-                    horizon,
-                    save_model,
-                    retrain_model
+                    dataset, medical_params, seed, horizon, save_model, retrain_model
                 )
 
             return run_experiment(
@@ -166,6 +168,7 @@ def prepare_medical_runner(
                 L1IntervalZones,
                 should_profile,
             )
+
         return run
 
     return get_runner

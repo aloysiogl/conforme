@@ -1,8 +1,11 @@
 from abc import abstractmethod
 from typing import Generic, Tuple, TypeVar
+
+
 import torch
 
 from .predictions import Targets, Targets1D, Targets2D
+
 from .score import ConformalScores, distance_2d_conformal_score
 
 
@@ -75,13 +78,12 @@ class DistanceZones(Zones[Targets2D]):
 
     def compute_zone_areas(self):
         scores = self._limiting_scores.values
-        areas = torch.pi*scores**2
+        areas = torch.pi * scores**2
 
         return areas
 
     def compute_coverage(self, targets: Targets2D):
-        comparison_scores = distance_2d_conformal_score(
-            targets, self._predictions)
+        comparison_scores = distance_2d_conformal_score(targets, self._predictions)
 
         assert comparison_scores.values.shape == self._limiting_scores.values.shape
         horizon_coverages = comparison_scores.values <= self._limiting_scores.values

@@ -4,12 +4,13 @@
 """RNN model."""
 
 import os.path
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import torch
+import torch.utils
 
 
-def get_lengths_mask(sequences, lengths, horizon):
+def get_lengths_mask(sequences: torch.Tensor, lengths: torch.Tensor, horizon: int):
     """
     Returns the mask indicating which positions in the sequence are valid.
 
@@ -20,8 +21,8 @@ def get_lengths_mask(sequences, lengths, horizon):
     """
 
     lengths_mask = torch.zeros(sequences.size(0), horizon, sequences.size(2))
-    for i, l in enumerate(lengths):
-        lengths_mask[i, : min(l, horizon), :] = 1
+    for i, length in enumerate(lengths):
+        lengths_mask[i, : min(length.item(), horizon), :] = 1
 
     return lengths_mask
 
@@ -51,7 +52,7 @@ class RNN(torch.nn.Module):
             path: optional path where to save the auxiliary model to be used
                 in the main CFRNN network
         """
-        super(RNN, self).__init__()
+        super(RNN, self).__init__()  # type: ignore
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
         self.input_size = input_size
@@ -77,8 +78,8 @@ class RNN(torch.nn.Module):
         self.forecaster_out = torch.nn.Linear(embedding_size, horizon * output_size)
 
         if self.path and os.path.isfile(self.path):
-            loaded_model = torch.load(self.path)
-            self.load_state_dict(loaded_model.state_dict())
+            loaded_model = torch.load(self.path)  # type: ignore
+            self.load_state_dict(loaded_model.state_dict())  # type: ignore
             for param in self.parameters():
                 param.requires_grad = False
             self.requires_fit = False
@@ -105,7 +106,13 @@ class RNN(torch.nn.Module):
 
         return out, (h_n, c_n)
 
-    def fit(self, train_dataset, epochs: int, lr: float, batch_size: int = 32):
+    def fit(
+        self,
+        train_dataset: Any,
+        epochs: int,
+        lr: float,
+        batch_size: int = 32,
+    ):
         """
         Trains the auxiliary forecaster to the training dataset.
 
@@ -118,7 +125,7 @@ class RNN(torch.nn.Module):
         if not self.requires_fit:
             return
 
-        train_loader = torch.utils.data.DataLoader(
+        train_loader: Any = torch.utils.data.DataLoader(  # type: ignore
             train_dataset, batch_size=batch_size, shuffle=True
         )
 
@@ -147,11 +154,9 @@ class RNN(torch.nn.Module):
                 print("Epoch: {}\tTrain loss: {}".format(epoch, mean_train_loss))
 
         if self.path is not None:
-            torch.save(self, self.path)
+            torch.save(self, self.path)  # type: ignore
 
-    def get_point_predictions_and_errors(
-        self, test_dataset: torch.utils.data.Dataset, corrected=True
-    ):
+    def get_point_predictions_and_errors(self, test_dataset: Any):
         """
         Obtains point predictions of the examples in the test dataset.
 
@@ -167,20 +172,20 @@ class RNN(torch.nn.Module):
         """
         self.eval()
 
-        point_predictions = []
-        errors = []
-        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
+        point_preditions_list: list[torch.Tensor] = []
+        errors_list: list[torch.Tensor] = []
+        test_loader: Any = torch.utils.data.DataLoader(test_dataset, batch_size=32)  # type: ignore
 
-        for sequences, targets, lengths in test_loader:
+        for sequences, targets, _ in test_loader:
             point_prediction, _ = self(sequences)
-            point_predictions.append(point_prediction)
-            errors.append(
+            point_preditions_list.append(point_prediction)
+            errors_list.append(
                 torch.nn.functional.l1_loss(
                     point_prediction, targets, reduction="none"
                 ).squeeze()
             )
 
-        point_predictions = torch.cat(point_predictions)
-        errors = torch.cat(errors)
+        point_preditions = torch.cat(point_preditions_list)
+        errors = torch.cat(errors_list)
 
-        return point_predictions, errors
+        return point_preditions, errors

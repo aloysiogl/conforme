@@ -4,7 +4,7 @@
 
 import os.path
 import sys
-from typing import Optional, List, Tuple, Union
+from typing import Optional, List, Tuple
 
 if sys.version_info < (3, 8, 3):
     import pickle5 as pickle

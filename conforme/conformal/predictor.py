@@ -1,26 +1,23 @@
-from dataclasses import dataclass
-import torch.nn as nn
-
-from math import ceil, sqrt
-import torch
 from abc import abstractmethod
-from typing import Callable, Generic, List, Optional, TypeVar
+from dataclasses import dataclass
+from math import ceil
+from typing import Any, Callable, List, Optional
+
+import torch
+import torch.nn as nn
 
 from .predictions import Targets
 from .score import ConformalScores
 
-P = TypeVar("P", bound=Targets)
-P_2 = TypeVar("P_2", bound=Targets)
-
 
 @dataclass
-class ConformalPredictorParams(Generic[P_2]):
+class ConformalPredictorParams[P: Targets]:
     alpha: float
     horizon: int
-    score_fn: Callable[[P_2, P_2], ConformalScores]
+    score_fn: Callable[[P, P], ConformalScores]
 
 
-class ConformalPredictor(Generic[P]):
+class ConformalPredictor[P: Targets]:
     def __init__(
         self, score_fn: Callable[[P, P], ConformalScores], alpha: float, horizon: int
     ) -> None:
@@ -52,7 +49,7 @@ class ConformalPredictor(Generic[P]):
             "method": self.get_name(),
         }
 
-    def get_tunnable_params(self):
+    def get_tunnable_params(self) -> dict[str, Any]:
         return {
             "n_computations": self._n_computations,
         }
@@ -61,19 +58,16 @@ class ConformalPredictor(Generic[P]):
         return self.__class__.__name__
 
 
-P_1 = TypeVar("P_1", bound=Targets)
-
-
-class CFRNN(ConformalPredictor[P_1]):
+class CFRNN[P: Targets](ConformalPredictor[P]):
     def __init__(
         self,
-        score_fn: Callable[[P_1, P_1], ConformalScores],
+        score_fn: Callable[[P, P], ConformalScores],
         alpha: float,
         horizon: int,
     ) -> None:
         super().__init__(score_fn, alpha, horizon)
 
-    def calibrate(self, targets: P_1, predictions: P_1):
+    def calibrate(self, targets: P, predictions: P):
         self._scores = self._score_fn(targets, predictions)
         bonferroni_alpha = self._alpha / self._horizon
         q = ConformalPredictor.get_q(
@@ -92,7 +86,7 @@ class CFRNN(ConformalPredictor[P_1]):
         self._n_computations += 1
         # TODO check if the quantile is correct (currently uses interpolate, halso handle the infinity case)
 
-    def limit_scores(self, targets: P_1) -> ConformalScores:
+    def limit_scores(self, targets: P) -> ConformalScores:
         target_values = targets.values
         target_shape = target_values.shape
         return ConformalScores(
@@ -101,22 +95,22 @@ class CFRNN(ConformalPredictor[P_1]):
             )
         )
 
-P_5 = TypeVar("P_5", bound=Targets)
 
-def get_cfrnn_maker(params: ConformalPredictorParams[P_5]):
+def get_cfrnn_maker[P: Targets](params: ConformalPredictorParams[P]):
     def make():
         return CFRNN(
             alpha=params.alpha,
             horizon=params.horizon,
             score_fn=params.score_fn,
         )
+
     return make
 
 
-class ConForMEBin(ConformalPredictor[P_1]):
+class ConForMEBin[P: Targets](ConformalPredictor[P]):
     def __init__(
         self,
-        score_fn: Callable[[P_1, P_1], ConformalScores],
+        score_fn: Callable[[P, P], ConformalScores],
         alpha: float,
         beta: float,
         horizon: int,
@@ -137,7 +131,7 @@ class ConForMEBin(ConformalPredictor[P_1]):
     def set_beta(self, beta: float):
         self._beta = beta
 
-    def predict(self, targets: P_1, predictions: P_1):
+    def predict(self, targets: P, predictions: P):
         self._scores = self._score_fn(targets, predictions)
         scores = self._scores.values
         scores = scores.squeeze(-1)
@@ -164,29 +158,26 @@ class ConForMEBin(ConformalPredictor[P_1]):
         for i in range(effective_horizon):
             if i == effective_horizon - 1 and consider_last_element:
                 last_sequence = scores[:, -1]
-                limit_scores.append(limit_score_for_sequence(
-                    last_sequence, pair_alpha))
+                limit_scores.append(limit_score_for_sequence(last_sequence, pair_alpha))
             else:
                 idx = 2 * i
                 even_sequence = scores[:, idx]
-                even_limit_score = limit_score_for_sequence(
-                    even_sequence, even_alpha)
+                even_limit_score = limit_score_for_sequence(even_sequence, even_alpha)
                 idx = 2 * i + 1
                 odd_scores = scores[:, idx]
                 odd_sequence = odd_scores[even_sequence <= even_limit_score]
-                odd_limit_score = limit_score_for_sequence(
-                    odd_sequence, odd_alpha)
+                odd_limit_score = limit_score_for_sequence(odd_sequence, odd_alpha)
 
                 limit_scores.append(even_limit_score)
                 limit_scores.append(odd_limit_score)
 
-        limit_scores = torch.stack(limit_scores)
-        assert limit_scores.ndim == 1
-        assert limit_scores.shape[0] == self._horizon
+        stacked_limit_scores = torch.stack(limit_scores)
+        assert stacked_limit_scores.ndim == 1
+        assert stacked_limit_scores.shape[0] == self._horizon
         self._n_computations += 1
-        return limit_scores
+        return stacked_limit_scores
 
-    def calibrate(self, targets: P_1, predictions: P_1):
+    def calibrate(self, targets: P, predictions: P):
         def performance_metric_for_beta(beta: float):
             self.set_beta(beta)
             scores = self.predict(targets, predictions)
@@ -230,156 +221,7 @@ class ConForMEBin(ConformalPredictor[P_1]):
             "beta": self._beta,
         }
 
-    def get_params(self):
-        if not self._optimze:
-            return {
-                **super().get_params(),
-                "beta": self._beta,
-                "horizon": self._horizon,
-            }
-        return super().get_params()
-
-    def limit_scores(self, targets: P_1) -> ConformalScores:
-        target_values = targets.values
-        target_shape = target_values.shape
-        return ConformalScores(
-            self._limit_scores.repeat(target_values.shape[0]).view(
-                target_shape[0], target_shape[1], 1
-            )
-        )
-
-
-class CFCRNNFull(nn.Module, ConformalPredictor[P_1]):
-    def __init__(
-        self,
-        score_fn: Callable[[P_1, P_1], ConformalScores],
-        alpha: float,
-        horizon: int,
-        epochs: int = 200,
-        lr: float = 0.000001,
-    ) -> None:
-        nn.Module.__init__(self)
-        ConformalPredictor.__init__(self, score_fn, alpha, horizon)
-        self._lr = lr
-        self._epochs = epochs
-        effective_alpha = alpha / (1 * horizon)
-        self._alphas = nn.Parameter(torch.ones(horizon) * effective_alpha)
-
-    def predict(self, targets: P_1, predictions: P_1):
-        scores = self._score_fn(targets, predictions).values
-        scores = scores.squeeze(-1)
-
-        def limit_score_for_sequence(
-            sequence: torch.Tensor, alpha: float
-        ) -> torch.Tensor:
-            q = ConformalPredictor.get_q(alpha, len(sequence))
-            if q is None:
-                return torch.tensor(float("inf"))
-            return torch.quantile(sequence, q)
-
-        limit_scores: List[torch.Tensor] = []
-        limit_scores.append(torch.tensor(float("inf")))
-        cal_points_to_select = torch.ones(scores[:, 0].shape, dtype=torch.bool)
-
-        for i in range(self._horizon):
-            previous_limits = limit_scores[i]
-            previous_sequence = (
-                torch.ones(scores[:, 0].shape) * float("inf")
-                if i == 0
-                else scores[:, i - 1]
-            )
-            previous_sequence_in_previous_limits = previous_sequence <= previous_limits
-
-            cal_points_to_select = (
-                cal_points_to_select & previous_sequence_in_previous_limits
-            )
-            current_scores = scores[:, i]
-            current_selected_scores = current_scores[cal_points_to_select]
-            current_limit_scores = limit_score_for_sequence(
-                current_selected_scores, self._alphas[i]
-            )
-
-            limit_scores.append(current_limit_scores)
-
-        limit_scores_tensor = torch.stack(limit_scores)
-        limit_scores_tensor = limit_scores_tensor[1:]
-        self._n_computations += 1
-        return limit_scores_tensor, self._alphas
-
-    def calibrate(self, targets: P_1, predictions: P_1):
-        lr = 0.000001
-        epochs = 200
-        optimizer = torch.optim.SGD(self.parameters(), lr=lr)
-        criterion = torch.nn.L1Loss()
-
-        self.train()
-        best_loss = float("inf")
-        best_scores = None
-        best_alphas = None
-        for epoch in range(epochs):
-            optimizer.zero_grad()
-
-            limit_scores, alphas = self.predict(targets, predictions)
-            loss = limit_scores
-
-            loss1 = criterion(limit_scores, torch.zeros_like(limit_scores))
-            prodd = torch.prod(1 - alphas)
-            alpha_diff = torch.abs(prodd - (1 - torch.tensor(self._alpha)))
-            loss2 = torch.tan(alpha_diff * (torch.pi / 2) / 0.01)
-            print(loss2, prodd)
-            # regularization_loss = 20 * torch.abs(
-            #     1 - torch.exp(torch.sum(alphas) - self._alpha)
-            # )
-            one_minus_alphas_sum = 1 - alphas.sum().detach().item()
-            one_mins_alphas = 1 - alphas.detach()
-            prod = torch.prod(one_mins_alphas)
-            current_loss_1 = loss1.detach().item()
-            # loss = loss1 + regularization_loss
-            loss = loss1 + loss2
-            # loss = loss1
-            current_loss = loss.detach().item()
-            loss.backward()
-            optimizer.step()
-            if current_loss < best_loss:
-                best_loss = current_loss
-                best_scores = limit_scores.detach().clone()
-                best_alphas = alphas.detach().clone()
-
-            print(
-                f"Epoch: {epoch}, current loss: {current_loss}, current loss 1: {current_loss_1}, alphas_sum: {one_minus_alphas_sum}, prod: {prod.item()}"
-            )
-            # print(alphas)
-
-        self._limit_scores = best_scores
-        self._alphas = torch.nn.Parameter(best_alphas)
-        print(
-            self._alphas,
-            self._limit_scores,
-            self._limit_scores.detach().mean(),
-            (1 - self._alphas).prod(),
-        )
-
-    def get_params(self):
-        params = super().get_params()
-        additional_params = {
-            "epochs": self._epochs,
-            "lr": self._lr,
-        }
-        return {**params, **additional_params}
-
-    def get_name(self):
-        if self._epochs == 1:
-            return self.__class__.__name__
-        return f"{self.__class__.__name__}Optim"
-
-    def get_tunnable_params(self):
-        return {
-            **super().get_tunnable_params(),
-            "alphas": self._alphas.tolist(),
-            "alphas_prod": (1 - self._alphas).prod().item(),
-        }
-
-    def limit_scores(self, targets: P_1) -> ConformalScores:
+    def limit_scores(self, targets: P) -> ConformalScores:
         target_values = targets.values
         target_shape = target_values.shape
         return ConformalScores(
@@ -390,28 +232,26 @@ class CFCRNNFull(nn.Module, ConformalPredictor[P_1]):
 
 
 @dataclass
-class ConForMEParams(Generic[P_2]):
+class ConForMEParams[P: Targets]:
     approximate_partition_size: int
     epochs: int
     lr: float
-    general_params: ConformalPredictorParams[P_2]
+    general_params: ConformalPredictorParams[P]
 
 
-class ConForME(nn.Module, ConformalPredictor[P_1]):
+class ConForME[P: Targets](nn.Module, ConformalPredictor[P]):
     def __init__(
         self,
-        score_fn: Callable[[P_1, P_1], ConformalScores],
+        score_fn: Callable[[P, P], ConformalScores],
         alpha: float,
         horizon: int,
         approximate_partition_size: int,
         epochs: int = 200,
         lr: float = 0.000001,
     ) -> None:
-        nn.Module.__init__(self)
-        ConformalPredictor.__init__(self, score_fn, alpha, horizon)
-        n_blocks = ConForME.number_of_blocks(
-            horizon, approximate_partition_size
-        )
+        nn.Module.__init__(self)  # type: ignore
+        ConformalPredictor.__init__(self, score_fn, alpha, horizon)  # type: ignore
+        n_blocks = ConForME.number_of_blocks(horizon, approximate_partition_size)
         self._lr = lr
         self._epochs = epochs
         self._approximate_partition_size = approximate_partition_size
@@ -436,7 +276,7 @@ class ConForME(nn.Module, ConformalPredictor[P_1]):
     def number_of_blocks(horizon: int, approximate_partition_size: int) -> int:
         return ceil(horizon / approximate_partition_size)
 
-    def predict(self, targets: P_1, predictions: P_1):
+    def predict(self, targets: P, predictions: P):
         scores = self._score_fn(targets, predictions).values
         scores = scores.squeeze(-1)
 
@@ -449,12 +289,11 @@ class ConForME(nn.Module, ConformalPredictor[P_1]):
             return torch.quantile(sequence, q)
 
         idx = 0
-        all_limit_scores = []
+        all_limit_scores: list[torch.Tensor] = []
         for i in range(len(self._alphas_per_block)):
             limit_scores: List[torch.Tensor] = []
             limit_scores.append(torch.tensor(float("inf")))
-            cal_points_mask = torch.ones(
-                scores[:, idx].shape, dtype=torch.bool)
+            cal_points_mask = torch.ones(scores[:, idx].shape, dtype=torch.bool)
 
             for j in range(len(self._alphas_per_block[i])):
                 previous_limits = limit_scores[j]
@@ -481,16 +320,16 @@ class ConForME(nn.Module, ConformalPredictor[P_1]):
             limit_scores_tensor = limit_scores_tensor[1:]
             all_limit_scores.append(limit_scores_tensor)
 
-        alphas_list = [t for t in self._alphas_per_block]
+        alphas_list: list[nn.Parameter] = [t for t in self._alphas_per_block]
         limit_scores_tensor = torch.cat(all_limit_scores)
         self._n_computations += 1
 
         return limit_scores_tensor, alphas_list
 
-    def calibrate(self, targets: P_1, predictions: P_1):
+    def calibrate(self, targets: P, predictions: P):
         optimizer = torch.optim.SGD(self.parameters(), lr=self._lr)
         criterion = torch.nn.L1Loss()
-        if self._epochs == 1:
+        if self._epochs <= 1:
             self._limit_scores, _ = self.predict(targets, predictions)
             return
 
@@ -505,20 +344,18 @@ class ConForME(nn.Module, ConformalPredictor[P_1]):
 
             loss1 = criterion(limit_scores, torch.zeros_like(limit_scores))
 
-            def compute_effective_one_minus_alpha(alphas_list):
+            def compute_effective_one_minus_alpha(alphas_list: list[nn.Parameter]):
                 prods = [torch.prod(1 - alphas) for alphas in alphas_list]
                 block_alphas = [1 - prod for prod in prods]
                 tot_alpha = torch.sum(torch.stack(block_alphas))
                 return 1 - tot_alpha
 
-            effective_one_minus_alpha = compute_effective_one_minus_alpha(
-                alphas_list)
+            effective_one_minus_alpha = compute_effective_one_minus_alpha(alphas_list)
 
             alpha_diff = torch.abs(
                 effective_one_minus_alpha - (1 - torch.tensor(self._alpha))
             )
             loss2 = torch.tan(alpha_diff * (torch.pi / 2) / 0.01)
-            print(loss2, effective_one_minus_alpha)
             one_minus_alphas_sum = 1 - effective_one_minus_alpha.detach().item()
             current_loss_1 = loss1.detach().item()
             loss = loss1 + loss2
@@ -530,12 +367,13 @@ class ConForME(nn.Module, ConformalPredictor[P_1]):
                 best_scores = limit_scores.detach().clone()
 
             print(
-                f"Epoch: {epoch}, current loss: {current_loss}, current loss 1: {current_loss_1}, alphas_sum: {one_minus_alphas_sum}"
+                f"Epoch: {epoch}, current loss: {current_loss}, current loss 1: {
+                    current_loss_1}, alphas_sum: {one_minus_alphas_sum}"
             )
-            # print(alphas)
+
+        assert best_scores is not None, "Best scores should not be none at this stage"
 
         self._limit_scores = best_scores
-        # self._alphas = torch.nn.Parameter(best_alphas)
         print(
             self._limit_scores,
             self._limit_scores.detach().mean(),
@@ -565,7 +403,7 @@ class ConForME(nn.Module, ConformalPredictor[P_1]):
             ],
         }
 
-    def limit_scores(self, targets: P_1) -> ConformalScores:
+    def limit_scores(self, targets: P) -> ConformalScores:
         target_values = targets.values
         target_shape = target_values.shape
         return ConformalScores(
@@ -574,7 +412,8 @@ class ConForME(nn.Module, ConformalPredictor[P_1]):
             )
         )
 
-def get_conforme_maker(params: ConForMEParams[P_5]):
+
+def get_conforme_maker[P: Targets](params: ConForMEParams[P]):
     def make():
         return ConForME(
             score_fn=params.general_params.score_fn,
@@ -584,20 +423,21 @@ def get_conforme_maker(params: ConForMEParams[P_5]):
             epochs=params.epochs,
             lr=params.lr,
         )
+
     return make
 
 
-class CFCEric(nn.Module, ConformalPredictor[P_1]):
+class CFCOverlapBinary[P: Targets](nn.Module, ConformalPredictor[P]):
     def __init__(
         self,
-        score_fn: Callable[[P_1, P_1], ConformalScores],
+        score_fn: Callable[[P, P], ConformalScores],
         alpha: float,
         horizon: int,
         epochs: int = 200,
         lr: float = 0.000001,
     ) -> None:
-        nn.Module.__init__(self)
-        ConformalPredictor.__init__(self, score_fn, alpha, horizon)
+        nn.Module.__init__(self)  # type: ignore
+        ConformalPredictor.__init__(self, score_fn, alpha, horizon)  # type: ignore
         self._epochs = epochs
         self._lr = lr
         no_offset_block_n_blocks = ceil(horizon / 2)
@@ -622,8 +462,7 @@ class CFCEric(nn.Module, ConformalPredictor[P_1]):
         base_alpha_no_offset = alpha / 2
         base_alpha_offset = alpha / 2
 
-        effective_alpha_no_offset = base_alpha_no_offset / \
-            (no_offset_block_n_blocks)
+        effective_alpha_no_offset = base_alpha_no_offset / (no_offset_block_n_blocks)
         effective_alpha_offset = base_alpha_offset / (offset_n_blocks)
         alphas_no_offset = nn.Parameter(
             torch.ones(no_offset_block_n_blocks) * effective_alpha_no_offset
@@ -650,7 +489,7 @@ class CFCEric(nn.Module, ConformalPredictor[P_1]):
             ]
         )
 
-    def predict(self, targets: P_1, predictions: P_1):
+    def predict(self, targets: P, predictions: P):
         scores = self._score_fn(targets, predictions).values
         scores = scores.squeeze(-1)
 
@@ -663,15 +502,14 @@ class CFCEric(nn.Module, ConformalPredictor[P_1]):
             return torch.quantile(sequence, q)
 
         def limit_scores(
-            alphas_per_block: List[torch.Tensor],
+            alphas_per_block: nn.ParameterList,
         ):
             idx = 0
-            all_limit_scores = []
+            all_limit_scores: list[torch.Tensor] = []
             for i in range(len(alphas_per_block)):
                 limit_scores: List[torch.Tensor] = []
                 limit_scores.append(torch.tensor(float("inf")))
-                cal_points_mask = torch.ones(
-                    scores[:, idx].shape, dtype=torch.bool)
+                cal_points_mask = torch.ones(scores[:, idx].shape, dtype=torch.bool)
 
                 for j in range(len(alphas_per_block[i])):
                     previous_limits = limit_scores[j]
@@ -690,7 +528,7 @@ class CFCEric(nn.Module, ConformalPredictor[P_1]):
                     current_scores = scores[:, idx]
                     current_selected_scores = current_scores[cal_points_mask]
                     current_limit_scores = limit_score_for_sequence(
-                        current_selected_scores, alphas_per_block[i][j]
+                        current_selected_scores, alphas_per_block[i][j].item()
                     )
 
                     limit_scores.append(current_limit_scores)
@@ -704,8 +542,7 @@ class CFCEric(nn.Module, ConformalPredictor[P_1]):
         limit_scores_no_offset = limit_scores(self._alphas_per_block_no_offset)
         limit_scores_offset = limit_scores(self._alphas_per_block_offset)
         limit_scores_tensor = (
-            torch.stack([limit_scores_no_offset, limit_scores_offset]).min(
-                dim=0).values
+            torch.stack([limit_scores_no_offset, limit_scores_offset]).min(dim=0).values
         )
         self._n_computations += 2
 
@@ -715,7 +552,7 @@ class CFCEric(nn.Module, ConformalPredictor[P_1]):
             torch.cat([t for t in self._alphas_per_block_offset]),
         )
 
-    def calibrate(self, targets: P_1, predictions: P_1):
+    def calibrate(self, targets: P, predictions: P):
         optimizer = torch.optim.SGD(self.parameters(), lr=self._lr)
         criterion = torch.nn.L1Loss()
 
@@ -756,9 +593,12 @@ class CFCEric(nn.Module, ConformalPredictor[P_1]):
                 best_loss = current_loss
                 best_scores = limit_scores.detach().clone()
             print(
-                f"Epoch: {epoch}, current loss: {current_loss}, current loss 1: {current_loss_1}, alphas_sum: {one_minus_alphas_sum}, prod: {prod.item()}"
+                f"Epoch: {epoch}, current loss: {current_loss}, current loss 1: {
+                    current_loss_1}, alphas_sum: {one_minus_alphas_sum}, prod: {prod.item()}"
             )
             # print(alphas)
+
+        assert best_scores is not None, "Best scores should not be none at this stage"
 
         self._limit_scores = best_scores
         # self._alphas = torch.nn.Parameter(best_alphas)
@@ -781,17 +621,16 @@ class CFCEric(nn.Module, ConformalPredictor[P_1]):
     def get_tunnable_params(self):
         return {
             **super().get_tunnable_params(),
-            "alphas_no_offset": torch.cat(
-                [t for t in self._alphas_per_block_no_offset]
-            ).tolist(),
-            "alphas_offset": torch.cat(
-                [t for t in self._alphas_per_block_offset]
-            ).tolist(),
+            "alphas_no_offset": [t.tolist() for t in self._alphas_per_block_no_offset],
+            "alphas_offset": [t.tolist() for t in self._alphas_per_block_offset],
         }
 
-    def limit_scores(self, targets: P_1) -> ConformalScores:
+    def limit_scores(self, targets: P) -> ConformalScores:
         target_values = targets.values
         target_shape = target_values.shape
+        assert (
+            self._limit_scores is not None
+        ), "Need to call calibrate before call limit_scores"
         return ConformalScores(
             self._limit_scores.repeat(target_values.shape[0]).view(
                 target_shape[0], target_shape[1], 1

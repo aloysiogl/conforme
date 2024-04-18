@@ -1,6 +1,4 @@
-from typing import Callable, TypeVar
-
-from conforme.conformal.predictor import ConForMEParams, ConformalPredictor, ConformalPredictorParams, get_cfrnn_maker, get_conforme_maker
+from conforme.conformal.predictor import ConForMEParams, ConformalPredictorParams, get_cfrnn_maker, get_conforme_maker
 from conforme.conformal.score import l1_conformal_score, distance_2d_conformal_score
 from conforme.experiments.run import get_argoverse_runner, prepare_medical_runner, prepare_synthetic_runner
 from conforme.result.evaluation import evaluate_experiments_for_dataset
@@ -106,13 +104,15 @@ covid_cp_makers = [
 
 
 """Running the experiments"""
+# apparently type system does not check correctly here
 
+# experiments for Tables 1 and 2
 evaluate_experiments_for_dataset("synthetic", True, synthetic_general_params, synthetic_cp_makers, synthetic_runner)
 
-# evaluate_experiments_for_dataset("argoverse", True, argoverse_general_params, argoverse_cp_makers, get_argoverse_runner)
+evaluate_experiments_for_dataset("argoverse", True, argoverse_general_params, argoverse_cp_makers, get_argoverse_runner)
 
-# evaluate_experiments_for_dataset("eeg", True, eeg10_general_params, eeg10_cp_makers, eeg10_runner)
+evaluate_experiments_for_dataset("eeg", True, eeg10_general_params, eeg10_cp_makers, eeg10_runner)
 
-# evaluate_experiments_for_dataset("eeg", True, eeg40_general_params, eeg40_cp_makers, eeg40_runner)
+evaluate_experiments_for_dataset("eeg", True, eeg40_general_params, eeg40_cp_makers, eeg40_runner)
 
-# evaluate_experiments_for_dataset("covid", True, covid_general_params, covid_cp_makers, covid_runner)
+evaluate_experiments_for_dataset("covid", True, covid_general_params, covid_cp_makers, covid_runner)

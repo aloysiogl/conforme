@@ -11,7 +11,7 @@ class ResultsDatabase:
                 self._data = json.load(f)
             self.check_duplicates()
         else:
-            self._data = []
+            self._data: list[Any] = []
 
     def lookup(self, params: Dict[str, Any]):
         for database_item in self._data:

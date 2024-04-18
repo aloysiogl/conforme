@@ -3,7 +3,7 @@
 # Licensed under the BSD 3-clause license
 # TODO change those headers
 
-from typing import Tuple
+from typing import Any, Tuple
 
 import torch
 
@@ -13,15 +13,15 @@ from ..model.rnn import RNN
 from .parameters import MedicalParameters, get_specific_parameters_for_medical_dataset
 
 
-def get_model_path(
-    dataset: str, rnn_mode: str, seed: int, horizon: int
-):
+def get_model_path(dataset: str, rnn_mode: str, seed: int, horizon: int):
     return "saved_models/{}-{}-{}{}.pt".format(
         dataset,
         rnn_mode,
         seed,
         ("-horizon{}".format(horizon)),
     )
+
+
 def train_and_get_calibration_test_medical(
     dataset: str,
     params: MedicalParameters,
@@ -30,8 +30,7 @@ def train_and_get_calibration_test_medical(
     save_model: bool = False,
     retrain_model: bool = True,
 ) -> Tuple[Targets1D, Targets1D, Targets1D, Targets1D]:
-    additional_params = get_specific_parameters_for_medical_dataset(
-        dataset)
+    additional_params = get_specific_parameters_for_medical_dataset(dataset)
 
     additional_params.horizon_length = horizon
 
@@ -48,8 +47,7 @@ def train_and_get_calibration_test_medical(
         forecaster_path = None
 
     train_dataset, calibration_dataset, test_dataset = ensure_1d_dataset_split(
-        split_fn(conformal=True,
-                 horizon=additional_params.horizon_length, seed=seed)
+        split_fn(conformal=True, horizon=additional_params.horizon_length, seed=seed)
     )
 
     model = RNN(
@@ -66,24 +64,22 @@ def train_and_get_calibration_test_medical(
         batch_size=params.batch_size,
     )
 
-    calibration_data_loader = torch.utils.data.DataLoader(
+    calibration_data_loader: Any = torch.utils.data.DataLoader(  # type: ignore
         calibration_dataset, batch_size=32
     )
-    cal_gts = Targets1D(
-        torch.cat([batch[1] for batch in calibration_data_loader])
-    )
+    cal_gts = Targets1D(torch.cat([batch[1] for batch in calibration_data_loader]))
     cal_preds = Targets1D(
         model.get_point_predictions_and_errors(calibration_dataset)[0]
     )
 
-    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
+    test_dataloader: Any = torch.utils.data.DataLoader(test_dataset, batch_size=32)  # type: ignore
     test_gts = Targets1D(torch.cat([batch[1] for batch in test_dataloader]))
 
     test_preds = Targets1D(
-        model.get_point_predictions_and_errors(test_dataset, corrected=True)[0]
+        model.get_point_predictions_and_errors(test_dataset)[0]
     )
 
     if save_model:
-        torch.save(model, "saved_models/{}-{}.pt".format(dataset, seed))
+        torch.save(model, "saved_models/{}-{}.pt".format(dataset, seed))  # type: ignore
 
     return cal_preds, cal_gts, test_preds, test_gts
