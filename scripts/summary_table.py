@@ -1,6 +1,8 @@
 import json
 from functools import partial
+from typing import Any, Callable, Optional
 
+import click
 from prettytable import PrettyTable
 
 data_retrive_paths = {
@@ -34,7 +36,7 @@ data_retrive_paths = {
     "max_cpu_memory_test": ["result", "outputs", "max_cpu_memory_test"],
 }
 
-headers = [
+areas_headers = [
     "Model",
     "Coverage",
     "Mean Area",
@@ -44,28 +46,26 @@ headers = [
     "N Evals",
     "Beta",
     "Mean Block Size",
-    # "Cpu Time Cal",
-    # "Min Cpu Time Cal",
-    # "Max Cpu Time Cal",
-    # "cpu memory cal",
-    # "min cpu memory cal",
-    # "max cpu memory cal",
-    # "cpu time test",
-    # "Min Cpu Time Test",
-    # "Max Cpu Time Test",
-    # "Cpu Memory Test",
-    # "Min Cpu Memory Test",
-    # "Max Cpu Memory Test"
+]
+
+times_headers = [
+    "Model",
+    "Cpu Time Cal",
+    "Min Cpu Time Cal",
+    "Max Cpu Time Cal",
+    "Cpu Time Test",
+    "Min Cpu Time Test",
+    "Max Cpu Time Test",
 ]
 
 
-def get_align(x):
+def get_align(x: str):
     if x in ["Model", "Improvement"]:
         return "l"
     return "c"
 
 
-def get_row(get):
+def get_row(get: Callable[[str], Optional[float]]):
     return {
         "Model": get("model"),
         "Beta": format_value("beta", get),
@@ -90,16 +90,18 @@ def get_row(get):
     }
 
 
-def safe_get_row(data_dict, paths_dict, value):
+def safe_get_row(
+    data_dict: dict[str, Any], paths_dict: dict[str, list[str]], value: str
+) -> Any:
     path_list = paths_dict[value]
     for key in path_list:
-        if not key in data_dict:
+        if key not in data_dict:
             return None
         data_dict = data_dict[key]
     return data_dict
 
 
-def format_value(field, get, std=False):
+def format_value(field: str, get: Callable[[str], Optional[float]], std: bool = False):
     if get(field) is None:
         return "-"
     if std is False:
@@ -108,48 +110,68 @@ def format_value(field, get, std=False):
     return f"{get(field):.3f} ± {get(std_field):.3f}"
 
 
-def wrap_division(denominator, get):
-    def division(field):
-        return get(field) / denominator
+def wrap_division(denominator: float, get: Callable[[str], Optional[float]]):
+    def division(field: str):
+        numerator = get(field)
+        if numerator is None:
+            return None
+        return numerator / denominator
 
     return division
 
 
-def format_memory(field, get, std=False):
+def format_memory(field: str, get: Callable[[str], Optional[float]], std: bool = False):
     wrapped_get = wrap_division(1024**2, get)
     return f"{format_value(field, wrapped_get, std)} MB"
 
 
-def format_time(field, get, std=False):
+def format_time(field: str, get: Callable[[str], Optional[float]], std: bool = False):
     wrapped_get = wrap_division(1e3, get)
     return f"{format_value(field, wrapped_get, std)} ms"
 
 
-def listmap(*args, **kwargs):
+def listmap(*args: Any, **kwargs: Any) -> list[Any]:
     return list(map(*args, **kwargs))
 
 
-def get_baseline_mean_area(paths):
+def get_baseline_mean_area(paths: list[dict[str, Any]]) -> float:
     for model in paths:
         if safe_get_row(model, data_retrive_paths, "model") == "CFRNN":
-            return safe_get_row(model, data_retrive_paths, "mean_area")
+            mean_area = safe_get_row(model, data_retrive_paths, "mean_area")
+            if not isinstance(mean_area, float):
+                raise ValueError(f"Expected float, got {mean_area}")
+            return mean_area
+    raise ValueError("CFRNN not found")
 
 
-def main():
-    database_path = "./results/synthetic_profile_horizon10.json"
-
-    with open(database_path, "r") as f:
+@click.command()
+@click.option(
+    "--results-path", "-r", "results_path", type=click.Path(exists=True), required=True
+)
+@click.option(
+    "--output-type",
+    "-o",
+    "output_type",
+    type=click.Choice(["areas", "times"]),
+    default="areas",
+)
+def main(results_path: str, output_type: str):
+    with open(results_path, "r") as f:
         data = json.load(f)
+
+    headers = areas_headers
+    if output_type == "times":
+        headers = times_headers
 
     table = PrettyTable(headers)
     baseline_mean_area = get_baseline_mean_area(data)
 
-    models = []
+    models: list[dict[str, Any]] = []
     for model in data:
         get = partial(safe_get_row, model, data_retrive_paths)
         row = get_row(get)
 
-        def add_improvement(row):
+        def add_improvement(row: dict[str, Any]):
             improvement = (
                 (baseline_mean_area - get("mean_area")) / baseline_mean_area * 100
             )
@@ -167,14 +189,14 @@ def main():
 
     for model in models:
 
-        def safe_get_row_value(key):
+        def safe_get_row_value(key: str):
             if key in model:
                 return model[key]
             return "-"
 
         table.add_row(listmap(safe_get_row_value, headers))
 
-    def align(x):
+    def align(x: str):
         table.align[x] = get_align(x)
 
     listmap(align, headers)

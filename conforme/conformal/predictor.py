@@ -391,8 +391,8 @@ class ConForME[P: Targets](nn.Module, ConformalPredictor[P]):
 
     def get_name(self):
         if self._epochs == 1:
-            return f"{self.__class__.__name__}{self._approximate_partition_size}"
-        return f"{self.__class__.__name__}{self._approximate_partition_size}Optim"
+            return f"{self.__class__.__name__}{len(self._block_sizes)}"
+        return f"{self.__class__.__name__}{len(self._block_sizes)}Optim"
 
     def get_tunnable_params(self):
         return {

@@ -15,12 +15,12 @@ scikit-learn = "^1.4"
 scipy = "^1.13"
 seaborn = "^0.13"
 pydantic = "^2.7"
+prettytable = "^3.10"
 matplotlib = "*"
+click = "*"
 tqdm = "*"
-prettytable = "*"
 
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-
