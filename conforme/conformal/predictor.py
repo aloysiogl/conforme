@@ -123,6 +123,14 @@ def get_cfrnn_maker[P: Targets](params: ConformalPredictorParams[P]):
     return make
 
 
+@dataclass
+class ConForMEBinParams[P: Targets]:
+    beta: float
+    optimize: bool
+    general_params: ConformalPredictorParams[P]
+    epsilon_binary_search: float = 0.01
+
+
 class ConForMEBin[P: Targets](ConformalPredictor[P]):
     def __init__(
         self,
@@ -130,8 +138,8 @@ class ConForMEBin[P: Targets](ConformalPredictor[P]):
         alpha: float,
         beta: float,
         horizon: int,
-        optimize: bool = False,
-        epsilon_binary_search: float = 0.01,
+        optimize: bool,
+        epsilon_binary_search: float,
     ) -> None:
         super().__init__(score_fn, alpha, horizon)
         self._beta = beta
@@ -245,6 +253,20 @@ class ConForMEBin[P: Targets](ConformalPredictor[P]):
                 target_shape[0], target_shape[1], 1
             )
         )
+
+
+def get_conformebin_maker[P: Targets](params: ConForMEBinParams[P]):
+    def make():
+        return ConForMEBin(
+            alpha=params.general_params.alpha,
+            horizon=params.general_params.horizon,
+            score_fn=params.general_params.score_fn,
+            beta=params.beta,
+            optimize=params.optimize,
+            epsilon_binary_search=params.epsilon_binary_search,
+        )
+
+    return make
 
 
 @dataclass
