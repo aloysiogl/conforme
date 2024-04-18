@@ -1,3 +1,20 @@
+#
+# This file is part of https://github.com/aloysiogl/conforme.
+# Copyright (c) 2024 Aloysio Galvao Lopes.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
@@ -159,7 +176,6 @@ class ResultsWrapper:
             raise ValueError("Not all results have the same n_threads")
         return n_threads
 
-    # TODO technical debt very ugly and bad
     def get_dict(self):
         """Memory in bytes and time in us."""
         return {

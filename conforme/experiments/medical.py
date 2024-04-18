@@ -1,7 +1,5 @@
-# Copyright (c) 2021, Kamilė Stankevičiūtė
-# Adapted from Ahmed M. Alaa github.com/ahmedmalaa/rnn-blockwise-jackknife
+# Adapted from Kamilė Stankevičiūtė https://github.com/kamilest/conformal-rnn
 # Licensed under the BSD 3-clause license
-# TODO change those headers
 
 from typing import Any, Tuple
 
@@ -75,9 +73,7 @@ def train_and_get_calibration_test_medical(
     test_dataloader: Any = torch.utils.data.DataLoader(test_dataset, batch_size=32)  # type: ignore
     test_gts = Targets1D(torch.cat([batch[1] for batch in test_dataloader]))
 
-    test_preds = Targets1D(
-        model.get_point_predictions_and_errors(test_dataset)[0]
-    )
+    test_preds = Targets1D(model.get_point_predictions_and_errors(test_dataset)[0])
 
     if save_model:
         torch.save(model, "saved_models/{}-{}.pt".format(dataset, seed))  # type: ignore

@@ -1,4 +1,4 @@
-# Copyright (c) 2021, Kamilė Stankevičiūtė
+# Adapted from Kamilė Stankevičiūtė https://github.com/kamilest/conformal-rnn
 # Licensed under the BSD 3-clause license
 
 import gzip
