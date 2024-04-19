@@ -50,7 +50,7 @@ synthetic_cp_makers = [
             optimize=False,
         )
     )
-    for b in np.arange(0.01, 0.99, 100)
+    for b in np.linspace(0.01, 0.99, 100)
 ]
 
 
@@ -70,7 +70,7 @@ eeg10_cp_makers = [
             optimize=False,
         )
     )
-    for b in np.arange(0.01, 0.99, 100)
+    for b in np.linspace(0.01, 0.99, 100)
 ]
 
 eeg40_general_params = ConformalPredictorParams(
@@ -89,7 +89,7 @@ eeg40_cp_makers = [
             optimize=False,
         )
     )
-    for b in np.arange(0.01, 0.99, 100)
+    for b in np.linspace(0.01, 0.99, 100)
 ]
 
 argoverse_general_params = ConformalPredictorParams(
@@ -106,7 +106,7 @@ argoverse_cp_makers = [
             optimize=False,
         )
     )
-    for b in np.arange(0.01, 0.99, 100)
+    for b in np.linspace(0.01, 0.99, 100)
 ]
 
 covid_general_params = ConformalPredictorParams(
@@ -125,9 +125,8 @@ covid_cp_makers = [
             optimize=False,
         )
     )
-    for b in np.arange(0.01, 0.99, 100)
+    for b in np.linspace(0.01, 0.99, 100)
 ]
-
 
 """Running the experiments"""
 # apparently type system does not check correctly here
@@ -140,7 +139,7 @@ evaluate_experiments_for_dataset(
     synthetic_general_params,
     synthetic_cp_makers,
     synthetic_runner,
-    "_betas",
+    "betas",
 )
 
 evaluate_experiments_for_dataset(
@@ -149,17 +148,17 @@ evaluate_experiments_for_dataset(
     argoverse_general_params,
     argoverse_cp_makers,
     get_argoverse_runner,
-    "_betas",
+    "betas",
 )
 
 evaluate_experiments_for_dataset(
-    "eeg", profile, eeg10_general_params, eeg10_cp_makers, eeg10_runner, "_betas"
+    "eeg", profile, eeg10_general_params, eeg10_cp_makers, eeg10_runner, "betas"
 )
 
 evaluate_experiments_for_dataset(
-    "eeg", profile, eeg40_general_params, eeg40_cp_makers, eeg40_runner, "_betas"
+    "eeg", profile, eeg40_general_params, eeg40_cp_makers, eeg40_runner, "betas"
 )
 
 evaluate_experiments_for_dataset(
-    "covid", profile, covid_general_params, covid_cp_makers, covid_runner, "_betas"
+    "covid", profile, covid_general_params, covid_cp_makers, covid_runner, "betas"
 )

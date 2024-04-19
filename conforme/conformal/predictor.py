@@ -232,6 +232,8 @@ class ConForMEBin[P: Targets](ConformalPredictor[P]):
             "optimize": self._optimze,
             "epsilon_binary_search": self._eps,
         }
+        if not self._optimze:
+            additional_params["beta"] = self._beta
         return {**params, **additional_params}
 
     def get_name(self):
@@ -240,9 +242,13 @@ class ConForMEBin[P: Targets](ConformalPredictor[P]):
         return self.__class__.__name__
 
     def get_tunnable_params(self):
+        if self._optimze:
+            return {
+                **super().get_tunnable_params(),
+                "beta": self._beta,
+            }
         return {
             **super().get_tunnable_params(),
-            "beta": self._beta,
         }
 
     def limit_scores(self, targets: P) -> ConformalScores:
