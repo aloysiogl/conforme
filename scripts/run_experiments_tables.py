@@ -158,7 +158,7 @@ argoverse_cp_makers = (
     + [
         get_conformebin_maker(
             ConForMEBinParams(
-                general_params=synthetic_general_params,
+                general_params=argoverse_general_params,
                 beta=0.5,
                 optimize=True,
             )
@@ -204,27 +204,29 @@ covid_cp_makers = (
 """Running the experiments"""
 # apparently type system does not check correctly here
 
-# experiments for Tables 1 and 2
+profile = True
+
 evaluate_experiments_for_dataset(
-    "synthetic", True, synthetic_general_params, synthetic_cp_makers, synthetic_runner
+    "synthetic", profile, synthetic_general_params, synthetic_cp_makers, synthetic_runner
 )
+
 
 evaluate_experiments_for_dataset(
     "argoverse",
-    True,
+    profile,
     argoverse_general_params,
     argoverse_cp_makers,
     get_argoverse_runner,
 )
 
 evaluate_experiments_for_dataset(
-    "eeg", True, eeg10_general_params, eeg10_cp_makers, eeg10_runner
+    "eeg", profile, eeg10_general_params, eeg10_cp_makers, eeg10_runner
 )
 
 evaluate_experiments_for_dataset(
-    "eeg", True, eeg40_general_params, eeg40_cp_makers, eeg40_runner
+    "eeg", profile, eeg40_general_params, eeg40_cp_makers, eeg40_runner
 )
 
 evaluate_experiments_for_dataset(
-    "covid", True, covid_general_params, covid_cp_makers, covid_runner
+    "covid", profile, covid_general_params, covid_cp_makers, covid_runner
 )
