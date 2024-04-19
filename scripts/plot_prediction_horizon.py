@@ -1,7 +1,9 @@
 import json
+import re
 from functools import partial
 from typing import Any
 
+import click
 import matplotlib.pyplot as plt
 
 
@@ -13,64 +15,70 @@ def safe_get(dict: dict[str, Any], path_list: list[str]) -> Any:
     return dict
 
 
-def main():
-    database_path = "./results/argoverse_profile_horizon30.json"
-    plt.style.use("seaborn-bright")
+@click.command()
+@click.option(
+    "--setting",
+    "-s",
+    "setting",
+    type=click.Choice(["eeg_all", "eeg_bin", "argoverse_all"]),
+    required=True,
+)
+def main(setting: str):
+    path_from_settings = {
+        "eeg_all": "./results/eeg_profile_horizon40.json",
+        "eeg_bin": "./results/eeg_profile_horizon40.json",
+        "argoverse_all": "./results/argoverse_profile_horizon30.json",
+    }
+    database_path = path_from_settings[setting]
+
+    plt.style.use("seaborn-v0_8-bright")
 
     with open(database_path, "r") as f:
         data = json.load(f)
 
-    # methods = [
-    #     "CFRNN",
-    #     "ConForME1",
-    #     "ConForME2",
-    #     # "ConForMEBinOptim",
-    #     "ConForME5",
-    #     "ConForME10",
-    #     "ConForME20",
-    #     "ConForME40",
-    # ]
-    methods = [
-        "CFRNN",
-        "ConForME1",
-        "ConForME2",
-        # "ConForMEBinOptim",
-        "ConForME3",
-        "ConForME10",
-        "ConForME30",
-    ]
+    def get_matcher(setting: str):
+        if setting == "eeg_all" or setting == "argoverse_all":
 
-    # name_map = {
-    #     "CFRNN": "CFRNN",
-    #     "ConForME1": "$ConForME_{40}$",
-    #     "ConForME2": "$ConForME_{20}$",
-    #     # "ConForMEBinOptim": "ConForME (BinOptim)",
-    #     "ConForME5": "$ConForME_{8}$",
-    #     "ConForME10": "$ConForME_{4}$",
-    #     "ConForME20": "$ConForME_{2}$",
-    #     "ConForME40": "$ConForME_{1}$",
-    # }
-    name_map = {
-        "CFRNN": "CFRNN",
-        "ConForME1": "$ConForME_{30}$",
-        "ConForME2": "$ConForME_{15}$",
-        "ConForME3": "$ConForME_{10}$",
-        "ConForME10": "$ConForME_{3}$",
-        "ConForME30": "$ConForME_{1}$",
-        # "ConForMEBinOptim": "ConForME (BinOptim)",
-    }
+            def matches(name: str):
+                matches = re.match(r"CFRNN", name) is not None
+                matches = matches or re.match(r"ConForME(\d+)$", name) is not None
+                return matches
+
+            return matches
+        elif setting == "eeg_bin":
+
+            def matches(name: str):
+                matches = re.match(r"ConForMEBinOptim$", name) is not None
+                matches = matches or re.match(r"ConForME20$", name) is not None
+                return matches
+
+            return matches
+        else:
+            raise ValueError(f"Unknown setting {setting}")
+
+    def method_name_map(name: str):
+        if re.match(r"CFRNN", name):
+            return "CFRNN"
+        conforme_match = re.match(r"ConForME(\d+)", name)
+        if conforme_match:
+            number = int(conforme_match.group(1))
+            return f"$ConForME_{{{number}}}$"
+        if re.match(r"ConForMEBinOptim", name):
+            return "ConForME (best beta)"
+        raise ValueError(f"Unknown method {name}")
+
+    matcher = get_matcher(setting)
 
     _, ax = plt.subplots()  # type: ignore
 
     for result in data:
         get = partial(safe_get, result)
         method = get(["params", "method"])
-        if method in methods:
+        if matcher(method):
             series: list[float] = get(["result", "outputs", "mean_area_per_horizon"])
             stds: list[float] = get(["result", "outputs", "mean_area_per_horizon_std"])
             indexes = list(range(1, len(series) + 1))
-            # plot with standard deviation
-            ax.plot(indexes, series, label=name_map[method])
+            ax.plot(indexes, series, label=method_name_map(method))
             ax.fill_between(
                 indexes,
                 [a - b for a, b in zip(series, stds)],
@@ -78,11 +86,7 @@ def main():
                 alpha=0.2,
             )
 
-    # ax.spines["right"].set_visible(False)
-    # ax.spines["left"].set_visible(False)
-    # ax.spines["top"].set_visible(False)
-
-    plt.legend() # type: ignore
+    plt.legend()  # type: ignore
     plt.rcParams.update(
         {
             "font.family": "serif",  # use serif/main font for text elements
@@ -90,8 +94,7 @@ def main():
             "pgf.rcfonts": False,  # don't setup fonts from rc parameters
         }
     )
-    plt.savefig("fig/results.pgf", backend="pgf")  # type: ignore
-    plt.savefig("fig/results.pdf", backend="pgf")  # type: ignore
+    plt.savefig(f"results/{setting}.png")  # type: ignore
 
 
 if __name__ == "__main__":
