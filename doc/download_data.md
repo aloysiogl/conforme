@@ -1,6 +1,18 @@
 # Download data
 
-The data is preprocessed and stored in a pickle file for each dataset. We use git [lfs](https://git-lfs.com/) to store these preprocessed data, and they are available in the data directory of this repo. No need to do any further steps.
+The data is preprocessed and stored in a pickle file for each dataset. We use git [lfs](https://git-lfs.com/) to store these preprocessed data, and they are available in the data directory of this repo.
+
+To pull the data from git lfs, you should follow the steps [here](https://git-lfs.com/). Then, go to the root of the directory and run:
+
+```bash
+git lfs install && git lfs pull
+```
+
+In ubuntu I could install git lfs with:
+
+```bash
+sudo apt-get install git-lfs
+```
 
 ## Downloading the data from source
 
