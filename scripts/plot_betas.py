@@ -27,9 +27,6 @@ def add_betas_to_plot(path: str, method_name: str, ax: Any):
 
     for result in data:
         get = partial(safe_get, result)
-        if method_name == "$Synthetic$":
-            if get(["params", "experiment_index"]) != 0:
-                continue
         beta = get(["params", "conformal_predictor_params", "beta"])
         width = get(["result", "outputs", "mean_area"])
         assert beta is not None and width is not None
@@ -47,16 +44,16 @@ def add_betas_to_plot(path: str, method_name: str, ax: Any):
 
 def main():
     print(plt.style.available)
-    plt.style.use("seaborn-bright")
+    plt.style.use("seaborn-v0_8-bright")
     _, ax = plt.subplots()  # type: ignore
-    add_betas_to_plot("./results/eeg_betas_horizon10.json", "$EEG_{10}$", ax)
-    add_betas_to_plot("./results/eeg_betas_horizon40.json", "$EEG_{40}$", ax)
-    add_betas_to_plot("./results/covid_betas_horizon50.json", "$COVID$", ax)
-    add_betas_to_plot("./results/argoverse_betas_horizon30.json", "$Argoverse$", ax)
-    add_betas_to_plot("./results/static_betas_horizon10.json", "$Synthetic$", ax)
+    add_betas_to_plot("./results/eeg_horizon10_betas.json", "$EEG_{10}$", ax)
+    add_betas_to_plot("./results/eeg_horizon40_betas.json", "$EEG_{40}$", ax)
+    add_betas_to_plot("./results/covid_horizon50_betas.json", "$COVID$", ax)
+    add_betas_to_plot("./results/argoverse_horizon30_betas.json", "$Argoverse$", ax)
+    add_betas_to_plot("./results/synthetic_horizon10_betas.json", "$Synthetic$", ax)
 
     plt.legend(loc="lower left")  # type: ignore
-    plt.savefig("fig/betas_curve.pgf", backend="pgf")  # type: ignore
+    plt.savefig("results/betas.png")  # type: ignore
 
 
 if __name__ == "__main__":
