@@ -65,7 +65,7 @@ eeg10_runner = prepare_medical_runner("eeg", True, False, eeg10_general_params)
 eeg10_cp_makers = [
     get_conformebin_maker(
         ConForMEBinParams(
-            general_params=synthetic_general_params,
+            general_params=eeg10_general_params,
             beta=b,
             optimize=False,
         )
@@ -84,7 +84,7 @@ eeg40_runner = prepare_medical_runner("eeg", True, False, eeg40_general_params)
 eeg40_cp_makers = [
     get_conformebin_maker(
         ConForMEBinParams(
-            general_params=synthetic_general_params,
+            general_params=eeg40_general_params,
             beta=b,
             optimize=False,
         )
@@ -120,7 +120,7 @@ covid_runner = prepare_medical_runner("covid", True, False, covid_general_params
 covid_cp_makers = [
     get_conformebin_maker(
         ConForMEBinParams(
-            general_params=synthetic_general_params,
+            general_params=covid_general_params,
             beta=b,
             optimize=False,
         )
@@ -132,7 +132,7 @@ covid_cp_makers = [
 """Running the experiments"""
 # apparently type system does not check correctly here
 
-profile = True
+profile = False
 
 evaluate_experiments_for_dataset(
     "synthetic",
