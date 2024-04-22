@@ -30,4 +30,4 @@ poetry run python scripts/plot_prediction_horizon.py -s argoverse_all
 poetry run python scripts/plot_betas.py
 ```
 
-The script `plot_prediction_horizon.py` has the option `-s` or `--setting` to specify which figure to generate. `eeg_all`, `eeg_bin`, and `argoverse_all` correspond, respectively, to the figures 2(a), 1(b) and 2(b) in the paper. The script places the generated figures in the results folder.
+The script `plot_prediction_horizon.py` has the option `-s` or `--setting` to specify which figure to generate. `eeg_all`, `eeg_bin`, and `argoverse_all` correspond, respectively, to the figures 2(a), 1(b) and 2(b) in the paper. The script places the generated figures in the results folder. Finally `plot_betas.py` generates the figure 1(a) in the paper and has no arguments.

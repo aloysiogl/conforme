@@ -8,6 +8,7 @@ Table of contents:
 - [Installation](doc/install.md)
 - [Download data](doc/download_data.md)
 - [Usage](doc/usage.md)
+- [Code structure](doc/structure.md)
 - [License](LICENSE.txt)
 
 ## TLDR
