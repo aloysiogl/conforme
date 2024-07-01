@@ -1,6 +1,6 @@
-# Repository for the paper "ConForME: Multi-horizon conditional conformal time series forecasting"
+# Repository for the paper "ConForME: Multi-horizon conformal time series forecasting"
 
-Link to the paper: TODO
+Paper: [ConForME: Multi-horizon conformal time series forecasting](doc/conforme-aloysio_eric_laurent_sylvie.pdf)
 
 Table of contents:
 
@@ -24,6 +24,25 @@ poetry run python scripts/run_experiments_betas.py
 
 JSON files with the results will be saved in the `results` directory. Further instructions detailing how to make these results more readable can be found in [here](doc/usage.md).
 
-## Citation
+## How to cite
 
-TODO
+```bibtex
+@inproceedings{conforme2024,
+  author       = {Aloysio Galvao Lopes and
+                  Eric Goubault and
+                  Laurent Pautet and
+                  Sylvie Putot},
+  editor       = {Simone Vantini and
+                  Matteo Fontana and
+                  Aldo Solari and
+                  Henrik Bostr{\"{o}}m and
+                  Lars Carlsson},
+  title        = {ConForME: Multi-horizon conformal time series forecasting},
+  booktitle    = {Conformal and Probabilistic Prediction with Applications, 9-11 September
+                  2024, Milan, Italy},
+  series       = {Proceedings of Machine Learning Research},
+  volume       = {230},
+  publisher    = {{PMLR}},
+  year         = {2024},
+}
+```
