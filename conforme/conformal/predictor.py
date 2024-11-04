@@ -18,7 +18,7 @@
 from abc import abstractmethod
 from dataclasses import dataclass
 from math import ceil
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Generic, List, Optional, TypeVar
 
 import torch
 import torch.nn as nn
@@ -26,17 +26,25 @@ import torch.nn as nn
 from .predictions import Targets
 from .score import ConformalScores
 
+P_1 = TypeVar("P_1", bound=Targets)
+
 
 @dataclass
-class ConformalPredictorParams[P: Targets]:
+class ConformalPredictorParams(Generic[P_1]):
     alpha: float
     horizon: int
-    score_fn: Callable[[P, P], ConformalScores]
+    score_fn: Callable[[P_1, P_1], ConformalScores]
 
 
-class ConformalPredictor[P: Targets]:
+P_2 = TypeVar("P_2", bound=Targets)
+
+
+class ConformalPredictor(Generic[P_2]):
     def __init__(
-        self, score_fn: Callable[[P, P], ConformalScores], alpha: float, horizon: int
+        self,
+        score_fn: Callable[[P_2, P_2], ConformalScores],
+        alpha: float,
+        horizon: int,
     ) -> None:
         self._score_fn = score_fn
         self._scores: Optional[ConformalScores] = None
@@ -46,7 +54,7 @@ class ConformalPredictor[P: Targets]:
         self._n_computations = 0
 
     @abstractmethod
-    def calibrate(self, targets: P, predictions: P):
+    def calibrate(self, targets: P_2, predictions: P_2):
         pass
 
     @staticmethod
@@ -56,7 +64,7 @@ class ConformalPredictor[P: Targets]:
         return min((n_calibration + 1.0) * (1 - alpha) / n_calibration, 1)
 
     @abstractmethod
-    def limit_scores(self, targets: P) -> ConformalScores:
+    def limit_scores(self, targets: P_2) -> ConformalScores:
         pass
 
     def get_params(self):
@@ -75,16 +83,19 @@ class ConformalPredictor[P: Targets]:
         return self.__class__.__name__
 
 
-class CFRNN[P: Targets](ConformalPredictor[P]):
+P_3 = TypeVar("P_3", bound=Targets)
+
+
+class CFRNN(Generic[P_3], ConformalPredictor[P_3]):
     def __init__(
         self,
-        score_fn: Callable[[P, P], ConformalScores],
+        score_fn: Callable[[P_3, P_3], ConformalScores],
         alpha: float,
         horizon: int,
     ) -> None:
         super().__init__(score_fn, alpha, horizon)
 
-    def calibrate(self, targets: P, predictions: P):
+    def calibrate(self, targets: P_3, predictions: P_3):
         self._scores = self._score_fn(targets, predictions)
         bonferroni_alpha = self._alpha / self._horizon
         q = ConformalPredictor.get_q(
@@ -102,7 +113,7 @@ class CFRNN[P: Targets](ConformalPredictor[P]):
             self._limit_scores = quantiles
         self._n_computations += 1
 
-    def limit_scores(self, targets: P) -> ConformalScores:
+    def limit_scores(self, targets: P_3) -> ConformalScores:
         target_values = targets.values
         target_shape = target_values.shape
         return ConformalScores(
@@ -112,7 +123,10 @@ class CFRNN[P: Targets](ConformalPredictor[P]):
         )
 
 
-def get_cfrnn_maker[P: Targets](params: ConformalPredictorParams[P]):
+P_4 = TypeVar("P_4", bound=Targets)
+
+
+def get_cfrnn_maker(params: ConformalPredictorParams[P_4]):
     def make():
         return CFRNN(
             alpha=params.alpha,
@@ -123,18 +137,24 @@ def get_cfrnn_maker[P: Targets](params: ConformalPredictorParams[P]):
     return make
 
 
+P_5 = TypeVar("P_5", bound=Targets)
+
+
 @dataclass
-class ConForMEBinParams[P: Targets]:
+class ConForMEBinParams(Generic[P_5]):
     beta: float
     optimize: bool
-    general_params: ConformalPredictorParams[P]
+    general_params: ConformalPredictorParams[P_5]
     epsilon_binary_search: float = 0.01
 
 
-class ConForMEBin[P: Targets](ConformalPredictor[P]):
+P_6 = TypeVar("P_6", bound=Targets)
+
+
+class ConForMEBin(Generic[P_6], ConformalPredictor[P_6]):
     def __init__(
         self,
-        score_fn: Callable[[P, P], ConformalScores],
+        score_fn: Callable[[P_6, P_6], ConformalScores],
         alpha: float,
         beta: float,
         horizon: int,
@@ -155,7 +175,7 @@ class ConForMEBin[P: Targets](ConformalPredictor[P]):
     def set_beta(self, beta: float):
         self._beta = beta
 
-    def predict(self, targets: P, predictions: P):
+    def predict(self, targets: P_6, predictions: P_6):
         self._scores = self._score_fn(targets, predictions)
         scores = self._scores.values
         scores = scores.squeeze(-1)
@@ -201,7 +221,7 @@ class ConForMEBin[P: Targets](ConformalPredictor[P]):
         self._n_computations += 1
         return stacked_limit_scores
 
-    def calibrate(self, targets: P, predictions: P):
+    def calibrate(self, targets: P_6, predictions: P_6):
         def performance_metric_for_beta(beta: float):
             self.set_beta(beta)
             scores = self.predict(targets, predictions)
@@ -251,7 +271,7 @@ class ConForMEBin[P: Targets](ConformalPredictor[P]):
             **super().get_tunnable_params(),
         }
 
-    def limit_scores(self, targets: P) -> ConformalScores:
+    def limit_scores(self, targets: P_6) -> ConformalScores:
         target_values = targets.values
         target_shape = target_values.shape
         return ConformalScores(
@@ -261,7 +281,10 @@ class ConForMEBin[P: Targets](ConformalPredictor[P]):
         )
 
 
-def get_conformebin_maker[P: Targets](params: ConForMEBinParams[P]):
+P_11 = TypeVar("P_11", bound=Targets)
+
+
+def get_conformebin_maker(params: ConForMEBinParams[P_11]):
     def make():
         return ConForMEBin(
             alpha=params.general_params.alpha,
@@ -275,18 +298,24 @@ def get_conformebin_maker[P: Targets](params: ConForMEBinParams[P]):
     return make
 
 
+P_7 = TypeVar("P_7", bound=Targets)
+
+
 @dataclass
-class ConForMEParams[P: Targets]:
+class ConForMEParams(Generic[P_7]):
     approximate_partition_size: int
     epochs: int
     lr: float
-    general_params: ConformalPredictorParams[P]
+    general_params: ConformalPredictorParams[P_7]
 
 
-class ConForME[P: Targets](nn.Module, ConformalPredictor[P]):
+P_8 = TypeVar("P_8", bound=Targets)
+
+
+class ConForME(Generic[P_8], nn.Module, ConformalPredictor[P_8]):
     def __init__(
         self,
-        score_fn: Callable[[P, P], ConformalScores],
+        score_fn: Callable[[P_8, P_8], ConformalScores],
         alpha: float,
         horizon: int,
         approximate_partition_size: int,
@@ -320,7 +349,7 @@ class ConForME[P: Targets](nn.Module, ConformalPredictor[P]):
     def number_of_blocks(horizon: int, approximate_partition_size: int) -> int:
         return ceil(horizon / approximate_partition_size)
 
-    def predict(self, targets: P, predictions: P):
+    def predict(self, targets: P_8, predictions: P_8):
         scores = self._score_fn(targets, predictions).values
         scores = scores.squeeze(-1)
 
@@ -370,7 +399,7 @@ class ConForME[P: Targets](nn.Module, ConformalPredictor[P]):
 
         return limit_scores_tensor, alphas_list
 
-    def calibrate(self, targets: P, predictions: P):
+    def calibrate(self, targets: P_8, predictions: P_8):
         optimizer = torch.optim.SGD(self.parameters(), lr=self._lr)
         criterion = torch.nn.L1Loss()
         if self._epochs <= 1:
@@ -446,7 +475,7 @@ class ConForME[P: Targets](nn.Module, ConformalPredictor[P]):
             ],
         }
 
-    def limit_scores(self, targets: P) -> ConformalScores:
+    def limit_scores(self, targets: P_8) -> ConformalScores:
         target_values = targets.values
         target_shape = target_values.shape
         return ConformalScores(
@@ -456,7 +485,10 @@ class ConForME[P: Targets](nn.Module, ConformalPredictor[P]):
         )
 
 
-def get_conforme_maker[P: Targets](params: ConForMEParams[P]):
+P_9 = TypeVar("P_9", bound=Targets)
+
+
+def get_conforme_maker(params: ConForMEParams[P_9]):
     def make():
         return ConForME(
             score_fn=params.general_params.score_fn,
@@ -470,10 +502,13 @@ def get_conforme_maker[P: Targets](params: ConForMEParams[P]):
     return make
 
 
-class CFCOverlapBinary[P: Targets](nn.Module, ConformalPredictor[P]):
+P_10 = TypeVar("P_10", bound=Targets)
+
+
+class CFCOverlapBinary(Generic[P_10], nn.Module, ConformalPredictor[P_10]):
     def __init__(
         self,
-        score_fn: Callable[[P, P], ConformalScores],
+        score_fn: Callable[[P_10, P_10], ConformalScores],
         alpha: float,
         horizon: int,
         epochs: int = 200,
@@ -532,7 +567,7 @@ class CFCOverlapBinary[P: Targets](nn.Module, ConformalPredictor[P]):
             ]
         )
 
-    def predict(self, targets: P, predictions: P):
+    def predict(self, targets: P_10, predictions: P_10):
         scores = self._score_fn(targets, predictions).values
         scores = scores.squeeze(-1)
 
@@ -595,7 +630,7 @@ class CFCOverlapBinary[P: Targets](nn.Module, ConformalPredictor[P]):
             torch.cat([t for t in self._alphas_per_block_offset]),
         )
 
-    def calibrate(self, targets: P, predictions: P):
+    def calibrate(self, targets: P_10, predictions: P_10):
         optimizer = torch.optim.SGD(self.parameters(), lr=self._lr)
         criterion = torch.nn.L1Loss()
 
@@ -667,7 +702,7 @@ class CFCOverlapBinary[P: Targets](nn.Module, ConformalPredictor[P]):
             "alphas_offset": [t.tolist() for t in self._alphas_per_block_offset],
         }
 
-    def limit_scores(self, targets: P) -> ConformalScores:
+    def limit_scores(self, targets: P_10) -> ConformalScores:
         target_values = targets.values
         target_shape = target_values.shape
         assert (

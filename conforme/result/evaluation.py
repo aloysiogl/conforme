@@ -15,7 +15,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-from typing import Any, Callable, Dict, List, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch
@@ -28,22 +28,22 @@ from ..conformal.predictor import ConformalPredictor, ConformalPredictorParams
 from ..conformal.zones import Zones
 from ..result.containers import Results, ResultsWrapper
 
+T_1 = TypeVar("T_1", bound=Targets)
 
-def evaluate_performance[T: Targets](
-    zone_constructor: Type[Zones[T]],
-    predictions: T,
-    targets: T,
-    conformal_predictor: ConformalPredictor[T],
+
+def evaluate_performance(
+    zone_constructor: Type[Zones[T_1]],
+    predictions: T_1,
+    targets: T_1,
+    conformal_predictor: ConformalPredictor[T_1],
 ):
     errors = predictions.values - targets.values
-    zones = zone_constructor(
-        predictions, conformal_predictor.limit_scores(predictions))
-    independent_coverages, joint_coverages = (
-        zones.compute_coverage(targets)
-    )
+    zones = zone_constructor(predictions, conformal_predictor.limit_scores(predictions))
+    independent_coverages, joint_coverages = zones.compute_coverage(targets)
 
     mean_independent_coverage = torch.mean(
-        independent_coverages.float(), dim=0).squeeze()
+        independent_coverages.float(), dim=0
+    ).squeeze()
     mean_joint_coverage = torch.mean(joint_coverages.float(), dim=0).item()
     areas = zones.compute_zone_areas().squeeze()
 
@@ -62,8 +62,11 @@ def evaluate_performance[T: Targets](
     )
 
 
-def evaluate_conformal_method[T: Targets](
-    run_experiment: Callable[[int], Tuple[Results, ConformalPredictor[T]]],
+T_2 = TypeVar("T_2", bound=Targets)
+
+
+def evaluate_conformal_method(
+    run_experiment: Callable[[int], Tuple[Results, ConformalPredictor[T_2]]],
     results_database: ResultsDatabase,
     params: Dict[str, Union[str, Any]],
     seeds: List[int] = [0, 1, 2, 3, 4],
@@ -91,11 +94,17 @@ def evaluate_conformal_method[T: Targets](
         results_database.save()
 
 
-def evaluate_dataset[T: Targets](
+T_3 = TypeVar("T_3", bound=Targets)
+
+
+def evaluate_dataset(
     dataset: str,
     results_database: ResultsDatabase,
-    get_runner: Callable[[Callable[[], ConformalPredictor[T]], bool], Callable[[int], Tuple[Results, ConformalPredictor[T]]]],
-    make_cp: Callable[[], ConformalPredictor[T]],
+    get_runner: Callable[
+        [Callable[[], ConformalPredictor[T_3]], bool],
+        Callable[[int], Tuple[Results, ConformalPredictor[T_3]]],
+    ],
+    make_cp: Callable[[], ConformalPredictor[T_3]],
     should_profile: bool,
     seeds: List[int],
     skip_existing: bool,
@@ -114,19 +123,29 @@ def evaluate_dataset[T: Targets](
         params,
         seeds,
         skip_existing,
-        save_results
+        save_results,
     )
 
 
-def evaluate_experiments_for_dataset[T: Targets](dataset: str,
-                                     should_profile: bool,
-                                     general_params: ConformalPredictorParams[T],
-                                     cp_makers: list[Callable[[], ConformalPredictor[T]]],
-                                     get_runner: Callable[[Callable[[], ConformalPredictor[T]], bool], Callable[[int], Tuple[Results, ConformalPredictor[T]]]],
-                                     experience_suffix: str = "",
-                                     seeds: List[int] = [0, 1, 2, 3, 4]):
-    name_string = f"{dataset}{'_profile' if should_profile else ''}_horizon{general_params.horizon}" \
+T_4 = TypeVar("T_4", bound=Targets)
+
+
+def evaluate_experiments_for_dataset(
+    dataset: str,
+    should_profile: bool,
+    general_params: ConformalPredictorParams[T_4],
+    cp_makers: list[Callable[[], ConformalPredictor[T_4]]],
+    get_runner: Callable[
+        [Callable[[], ConformalPredictor[T_4]], bool],
+        Callable[[int], Tuple[Results, ConformalPredictor[T_4]]],
+    ],
+    experience_suffix: str = "",
+    seeds: List[int] = [0, 1, 2, 3, 4],
+):
+    name_string = (
+        f"{dataset}{'_profile' if should_profile else ''}_horizon{general_params.horizon}"
         f"{'_' if experience_suffix else ''}{experience_suffix}"
+    )
     results_database = ResultsDatabase("./results", name_string)
 
     for make_cp in tqdm(cp_makers):
@@ -138,5 +157,5 @@ def evaluate_experiments_for_dataset[T: Targets](dataset: str,
             should_profile,
             seeds=seeds,
             skip_existing=True,
-            save_results=True
+            save_results=True,
         )
