@@ -6,11 +6,11 @@ authors = ["aloysiogl <aloysiogl@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
-torch = "^2.2"
+python = "^3.11"
+torch = "^1.3"
 jupyterlab = "^4.1"
 numpy = "^1.26"
-pandas = "^2.2"
+pandas = "^1.4.4"
 scikit-learn = "^1.4"
 scipy = "^1.13"
 seaborn = "^0.13"
