@@ -411,8 +411,7 @@ class ConForME[P: Targets](nn.Module, ConformalPredictor[P]):
                 best_scores = limit_scores.detach().clone()
 
             print(
-                f"Epoch: {epoch}, current loss: {current_loss}, current loss 1: {
-                    current_loss_1}, alphas_sum: {one_minus_alphas_sum}"
+                f"Epoch: {epoch}, current loss: {current_loss}, current loss 1: {current_loss_1}, alphas_sum: {one_minus_alphas_sum}"
             )
 
         assert best_scores is not None, "Best scores should not be none at this stage"
@@ -637,8 +636,7 @@ class CFCOverlapBinary[P: Targets](nn.Module, ConformalPredictor[P]):
                 best_loss = current_loss
                 best_scores = limit_scores.detach().clone()
             print(
-                f"Epoch: {epoch}, current loss: {current_loss}, current loss 1: {
-                    current_loss_1}, alphas_sum: {one_minus_alphas_sum}, prod: {prod.item()}"
+                f"Epoch: {epoch}, current loss: {current_loss}, current loss 1: {current_loss_1}, alphas_sum: {one_minus_alphas_sum}, prod: {prod.item()}"
             )
             # print(alphas)
 
